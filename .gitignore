@@ -1,0 +1,56 @@
+# Secrets & Sensitive Credentials
+api-key.txt
+*/api-key.txt
+*.key
+*.pem
+*.env
+.env*
+*.local
+
+# Node Dependencies & Package Manager Files
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build Artifacts & Packaging
+*.zip
+*.crx
+*.xpi
+dist/
+build/
+
+# Testing & Automation Artifacts
+test-results/
+playwright-report/
+.playwright-mcp/
+blob-report/
+coverage/
+.nyc_output/
+
+# Logs & Temporary Files
+*.log
+*.tmp
+*.temp
+scratch/
+
+# OS-Specific Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE & Editor Directories
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+*~
