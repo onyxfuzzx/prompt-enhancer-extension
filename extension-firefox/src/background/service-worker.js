@@ -210,6 +210,35 @@ function handleGetLastResult() {
 }
 
 /**
+ * Handle GET_USAGE_STATS message.
+ * Returns aggregated stats, limits check, and current model configuration.
+ *
+ * @returns {Promise<Object>}
+ */
+function handleGetUsageStats() {
+  return Promise.all([
+    PE.storage.getUsageStats(),
+    PE.storage.checkLimits(),
+    PE.storage.getSettings()
+  ]).then(function (results) {
+    var stats    = results[0];
+    var limits   = results[1];
+    var settings = results[2];
+    var provider = (settings && settings.provider) || 'openrouter';
+    var model    = (settings && settings.models && settings.models[provider]) || '';
+
+    return {
+      ok: true,
+      stats: stats,
+      limits: limits,
+      provider: provider,
+      model: model,
+      pricing: (PE.C && PE.C.MODEL_PRICING) || {}
+    };
+  });
+}
+
+/**
  * Handle ENHANCE_PROMPT message (Section 11 Phase 4).
  *
  * @param {Object} payload { text, source }
@@ -231,7 +260,20 @@ function handleEnhancePrompt(payload, sender) {
 
   var startTime = Date.now();
 
-  return PE.storage.getSettings().then(function (settings) {
+  // Check usage limits before proceeding
+  return PE.storage.checkLimits().then(function (limitResult) {
+    if (!limitResult.ok) {
+      var limitErr = PE.errors.make(
+        PE.errors.CODES.LIMIT_REACHED,
+        'Usage limit reached (' + limitResult.exceeded + '): ' + limitResult.used + '/' + limitResult.limit
+      );
+      limitErr.limitExceeded = limitResult.exceeded;
+      limitErr.limitUsed     = limitResult.used;
+      limitErr.limitMax      = limitResult.limit;
+      return Promise.reject(limitErr);
+    }
+    return PE.storage.getSettings();
+  }).then(function (settings) {
     var providerId = (settings && settings.provider) || 'openrouter';
     var adapter = PE.providers.get(providerId);
     var apiKey = (settings.apiKeys && settings.apiKeys[providerId]) || '';
@@ -266,8 +308,9 @@ function handleEnhancePrompt(payload, sender) {
     }
 
     return permCheck.then(function () {
+      var rawAttachments = (payload && Array.isArray(payload.attachments)) ? payload.attachments : [];
       effectiveContext = (settings && settings.includeChatContext === false) ? null : rawContext;
-      var messages = PE.enhancer.buildMessages(rawText, settings, effectiveContext);
+      var messages = PE.enhancer.buildMessages(rawText, settings, effectiveContext, rawAttachments);
       var timeoutMs = (PE.C && PE.C.LIMITS && PE.C.LIMITS.TIMEOUT_ENHANCE_MS) || 60000;
 
       function executeComplete() {
@@ -310,6 +353,21 @@ function handleEnhancePrompt(payload, sender) {
         if (PE.C.DEBUG) { console.warn('[PE] Failed to save lastResult:', e); }
       });
 
+      // Record usage event
+      var domain = '';
+      try { domain = tabUrl ? new URL(tabUrl).hostname : ''; } catch (e) {}
+      PE.storage.recordUsage({
+        type:        'enhance',
+        provider:    providerId,
+        model:       result.model || model,
+        domain:      domain,
+        inputChars:  rawText.length,
+        outputChars: enhancedText.length,
+        latencyMs:   durationMs
+      }).catch(function (e) {
+        if (PE.C.DEBUG) { console.warn('[PE] Failed to record usage:', e); }
+      });
+
       return {
         ok: true,
         enhancedText: enhancedText,
@@ -342,7 +400,19 @@ function handleCorrectGrammar(payload, sender) {
 
   var startTime = Date.now();
 
-  return PE.storage.getSettings().then(function (settings) {
+  return PE.storage.checkLimits().then(function (limitResult) {
+    if (!limitResult.ok) {
+      var limitErr = PE.errors.make(
+        PE.errors.CODES.LIMIT_REACHED,
+        'Usage limit reached (' + limitResult.exceeded + '): ' + limitResult.used + '/' + limitResult.limit
+      );
+      limitErr.limitExceeded = limitResult.exceeded;
+      limitErr.limitUsed     = limitResult.used;
+      limitErr.limitMax      = limitResult.limit;
+      return Promise.reject(limitErr);
+    }
+    return PE.storage.getSettings();
+  }).then(function (settings) {
     var providerId = (settings && settings.provider) || 'openrouter';
     var adapter = PE.providers.get(providerId);
     var apiKey = (settings.apiKeys && settings.apiKeys[providerId]) || '';
@@ -415,6 +485,21 @@ function handleCorrectGrammar(payload, sender) {
         tabUrl: tabUrl
       }).catch(function (e) {
         if (PE.C.DEBUG) { console.warn('[PE] Failed to save lastResult:', e); }
+      });
+
+      // Record usage event
+      var domain = '';
+      try { domain = tabUrl ? new URL(tabUrl).hostname : ''; } catch (e) {}
+      PE.storage.recordUsage({
+        type:        'grammar',
+        provider:    providerId,
+        model:       result.model || model,
+        domain:      domain,
+        inputChars:  rawText.length,
+        outputChars: correctedText.length,
+        latencyMs:   durationMs
+      }).catch(function (e) {
+        if (PE.C.DEBUG) { console.warn('[PE] Failed to record usage:', e); }
       });
 
       return {
@@ -532,6 +617,17 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         });
       return true;
 
+    case PE.C.MSG.GET_USAGE_STATS:
+      handleGetUsageStats()
+        .then(function (res) { sendResponse(res); })
+        .catch(function (err) {
+          sendResponse({
+            ok: false,
+            error: PE.errors.isPEError(err) ? err : PE.errors.make(PE.errors.CODES.UNKNOWN, err)
+          });
+        });
+      return true;
+
     case PE.C.MSG.ENHANCE_PROMPT:
       handleEnhancePrompt(payload, sender)
         .then(function (res) { sendResponse(res); })
@@ -578,6 +674,7 @@ var CONTENT_SCRIPT_FILES = [
   'src/content/site-adapters.js',
   'src/content/dom-utils.js',
   'src/content/ui-overlay.js',
+  'src/content/stats-overlay.js',
   'src/content/content.js'
 ];
 

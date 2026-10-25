@@ -741,6 +741,453 @@
     return turns;
   };
 
+  /**
+   * Helper to categorize files by extension.
+   * @param {string} filename
+   * @returns {string}
+   */
+  function detectFileCategory(filename) {
+    if (!filename || typeof filename !== 'string') return 'Document';
+    var ext = '';
+    var match = filename.match(/\.([a-zA-Z0-9]{1,8})$/);
+    if (match) {
+      ext = match[1].toLowerCase();
+    }
+    if (/^(csv|tsv|xlsx?|parquet|feather|ods)$/.test(ext)) return 'Spreadsheet / Data';
+    if (/^(png|jpe?g|webp|gif|svg|bmp|tiff|avif)$/.test(ext)) return 'Image';
+    if (/^(pdf|docx?|txt|rtf|odt|epub|pages)$/.test(ext)) return 'Document';
+    if (/^(py|js|ts|jsx|tsx|json|sql|html|css|cpp|c|java|go|rs|rb|php|sh|yaml|yml|xml|toml)$/.test(ext)) return 'Code / Data';
+    if (/^(zip|tar|gz|7z|rar)$/.test(ext)) return 'Archive';
+    return 'File';
+  }
+
+  /**
+   * Resolve the visible outer input container (pill / card) that wraps the text input
+   * and its associated toolbar buttons (attach, mic, send), excluding disclaimer footers
+   * and chat history containers.
+   *
+   * @param {Element} targetEl
+   * @returns {Element}
+   */
+  dom.findOuterInputContainer = function (targetEl) {
+    if (!targetEl || !targetEl.parentElement) return targetEl;
+
+    try {
+      var host = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname : '';
+      var winW = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 1920;
+      var winH = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 1080;
+      var targetRect = targetEl.getBoundingClientRect();
+      var maxAllowedH = Math.min(320, (targetRect.height > 0 ? targetRect.height + 90 : 220));
+
+      function hasDisclaimer(el) {
+        if (!el) return false;
+        var txt = (el.textContent || '').toLowerCase();
+        if (
+          txt.includes('can make mistakes') ||
+          txt.includes('double-check responses') ||
+          txt.includes('display inaccurate info') ||
+          txt.includes('verify important info') ||
+          txt.includes('check important info')
+        ) {
+          return true;
+        }
+        if (el.querySelector && el.querySelector('[class*="disclaimer"], [class*="footer"], .text-xs')) {
+          var dChild = el.querySelector('[class*="disclaimer"], [class*="footer"], .text-xs');
+          var dTxt = (dChild.textContent || '').toLowerCase();
+          if (dTxt.includes('mistake') || dTxt.includes('inaccurate') || dTxt.includes('verify') || dTxt.includes('claude is ai') || dTxt.includes('chatgpt can')) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function isValidCard(el, maxH, maxW) {
+        if (!el || typeof el.getBoundingClientRect !== 'function') return false;
+        var r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) return false;
+        if (r.height > (maxH || maxAllowedH)) return false;
+        if (r.width > (maxW || (winW - 20))) return false;
+        if (hasDisclaimer(el)) return false;
+        if (el.matches && el.matches('body, html, main, section, [role="log"], [role="feed"], .conversation-container, #chat-history')) {
+          return false;
+        }
+        return true;
+      }
+
+      function hasPillRadius(el) {
+        if (!el || typeof window === 'undefined' || !window.getComputedStyle) return false;
+        var cs = window.getComputedStyle(el);
+        var r = parseFloat(cs.borderRadius) || parseFloat(cs.borderTopLeftRadius) || 0;
+        return r >= 16;
+      }
+
+      function hasCardStyle(el) {
+        if (!el || typeof window === 'undefined' || !window.getComputedStyle) return false;
+        var cs = window.getComputedStyle(el);
+        var r = parseFloat(cs.borderRadius) || parseFloat(cs.borderTopLeftRadius) || 0;
+        var hasBg = cs.backgroundColor && cs.backgroundColor !== 'transparent' && cs.backgroundColor !== 'rgba(0, 0, 0, 0)';
+        var hasBorder = (parseFloat(cs.borderWidth) || 0) > 0 && cs.borderStyle !== 'none';
+        var hasShadow = cs.boxShadow && cs.boxShadow !== 'none';
+        return (r >= 12) && (hasBg || hasBorder || hasShadow);
+      }
+
+      // 1. Google Gemini (gemini.google.com)
+      if (/gemini\.google\.com/i.test(host)) {
+        var richText = targetEl.closest('rich-textarea') || targetEl;
+
+        var inputArea = richText.closest('.input-area, [class*="input-area"]');
+        if (inputArea && isValidCard(inputArea, maxAllowedH, winW - 30)) {
+          if (!inputArea.classList.contains('conversation-container') && !inputArea.classList.contains('chat-history') && !inputArea.classList.contains('chat-app')) {
+            var btns = inputArea.querySelectorAll('button, [role="button"]');
+            if (btns.length > 0) {
+              return inputArea;
+            }
+          }
+        }
+
+        var currGemini = richText.parentElement;
+        var depthGemini = 0;
+        while (currGemini && currGemini !== document.body && depthGemini < 5) {
+          depthGemini++;
+          if (hasDisclaimer(currGemini)) break;
+          if (currGemini.classList && (
+            currGemini.classList.contains('conversation-container') ||
+            currGemini.classList.contains('bottom-container') ||
+            currGemini.classList.contains('chat-history') ||
+            currGemini.classList.contains('chat-app')
+          )) {
+            break;
+          }
+          if (isValidCard(currGemini, maxAllowedH, winW - 30)) {
+            var gBtns = currGemini.querySelectorAll('button, [role="button"]');
+            var gRadius = hasPillRadius(currGemini);
+            if (gRadius && gBtns.length > 0) {
+              return currGemini;
+            }
+          }
+          currGemini = currGemini.parentElement;
+        }
+
+        if (richText.parentElement && isValidCard(richText.parentElement, maxAllowedH, winW - 30)) {
+          return richText.parentElement;
+        }
+      }
+
+      // 2. Anthropic Claude (claude.ai)
+      if (/claude\.ai/i.test(host)) {
+        var fieldset = targetEl.closest('fieldset');
+        if (fieldset && isValidCard(fieldset, maxAllowedH, winW - 24) && fieldset.querySelectorAll('button, [role="button"]').length > 0) {
+          return fieldset;
+        }
+
+        var currClaude = targetEl.parentElement;
+        var depthClaude = 0;
+        var bestClaudeCard = null;
+
+        while (currClaude && currClaude !== document.body && depthClaude < 6) {
+          depthClaude++;
+          if (hasDisclaimer(currClaude)) break;
+          if (currClaude.tagName && currClaude.tagName.toLowerCase() === 'form') break;
+
+          var cRect = currClaude.getBoundingClientRect();
+          if (cRect.width > 0 && cRect.height > 0 && cRect.height <= maxAllowedH) {
+            var cs = window.getComputedStyle(currClaude);
+            var cBorder = parseFloat(cs.borderWidth) || 0;
+            var cRadius = parseFloat(cs.borderRadius) || parseFloat(cs.borderTopLeftRadius) || 0;
+            var cBtns = currClaude.querySelectorAll('button, [role="button"]');
+
+            if ((cBorder > 0 || cRadius >= 14 || (currClaude.className && currClaude.className.includes('rounded-'))) && cBtns.length > 0) {
+              bestClaudeCard = currClaude;
+              var hasSend = false;
+              for (var bi = 0; bi < cBtns.length; bi++) {
+                var btnAria = (cBtns[bi].getAttribute('aria-label') || '').toLowerCase();
+                if (btnAria.includes('send') || btnAria.includes('message')) { hasSend = true; break; }
+              }
+              if (hasSend || cBtns.length >= 2) {
+                return currClaude;
+              }
+            }
+          }
+          currClaude = currClaude.parentElement;
+        }
+
+        if (bestClaudeCard) return bestClaudeCard;
+      }
+
+      // 3. OpenAI ChatGPT (chatgpt.com / chat.openai.com)
+      if (/chatgpt\.com|chat\.openai\.com/i.test(host)) {
+        var composerBg = targetEl.closest('#composer-background, [id*="composer-background"], [class*="bg-token-main-surface"], div[class*="rounded-[2"], div[class*="rounded-3xl"]');
+        if (composerBg && isValidCard(composerBg, maxAllowedH, winW - 24)) {
+          return composerBg;
+        }
+
+        var currGpt = targetEl.parentElement;
+        var depthGpt = 0;
+        var bestGptCard = null;
+
+        while (currGpt && currGpt !== document.body && depthGpt < 6) {
+          depthGpt++;
+          if (hasDisclaimer(currGpt)) break;
+          if (currGpt.tagName && currGpt.tagName.toLowerCase() === 'form') break;
+
+          var gRect = currGpt.getBoundingClientRect();
+          if (gRect.width > 0 && gRect.height > 0 && gRect.height <= maxAllowedH) {
+            var gcs = window.getComputedStyle(currGpt);
+            var gRadius = parseFloat(gcs.borderRadius) || parseFloat(gcs.borderTopLeftRadius) || 0;
+            var gBtns = currGpt.querySelectorAll('button, [role="button"]');
+
+            if (gRadius >= 16 && gBtns.length > 0) {
+              bestGptCard = currGpt;
+              var hasGptSend = false;
+              for (var gi = 0; gi < gBtns.length; gi++) {
+                var gTestId = (gBtns[gi].getAttribute('data-testid') || '').toLowerCase();
+                var gAria = (gBtns[gi].getAttribute('aria-label') || '').toLowerCase();
+                if (gTestId.includes('send') || gAria.includes('send') || gAria.includes('prompt')) {
+                  hasGptSend = true;
+                  break;
+                }
+              }
+              if (hasGptSend || gBtns.length >= 2) {
+                return currGpt;
+              }
+            }
+          }
+          currGpt = currGpt.parentElement;
+        }
+
+        if (bestGptCard) return bestGptCard;
+      }
+
+      // 4. Google AI Studio (aistudio.google.com)
+      if (/aistudio\.google\.com/i.test(host)) {
+        var aiStudioBox = targetEl.closest('ms-autosize-textarea, ms-prompt-box, .prompt-box');
+        if (aiStudioBox && aiStudioBox.parentElement && isValidCard(aiStudioBox.parentElement, maxAllowedH, winW - 30)) {
+          return aiStudioBox.parentElement;
+        }
+      }
+    } catch (e) {}
+
+    // 5. Universal Scored Upward Traversal (Fallback for all sites)
+    try {
+      var targetRect = targetEl.getBoundingClientRect();
+      var maxAllowedH = Math.min(320, (targetRect.height > 0 ? targetRect.height + 90 : 220));
+      var curr = targetEl.parentElement;
+      var depth = 0;
+      var bestCandidate = null;
+      var bestScore = -1;
+      var winWFallback = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 1920;
+      var winHFallback = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 1080;
+
+      while (curr && curr !== document.body && curr !== document.documentElement && depth < 8) {
+        depth++;
+        var rect = curr.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) {
+          curr = curr.parentElement;
+          continue;
+        }
+
+        if (rect.width > winWFallback - 24) break;
+        if (rect.height > maxAllowedH || rect.height > winHFallback * 0.6) break;
+
+        var txt = (curr.textContent || '').toLowerCase();
+        if (txt.includes('can make mistakes') || txt.includes('double-check responses') || txt.includes('display inaccurate info')) {
+          break;
+        }
+
+        if (curr.matches && curr.matches('main, article, section, [role="log"], [role="feed"], [role="main"], form, .conversation-container, #chat-history')) {
+          curr = curr.parentElement;
+          continue;
+        }
+
+        var cs = (typeof window !== 'undefined' && window.getComputedStyle) ? window.getComputedStyle(curr) : null;
+        var radiusVal = cs ? (parseFloat(cs.borderRadius) || parseFloat(cs.borderTopLeftRadius) || 0) : 0;
+        var hasBg = cs && cs.backgroundColor && cs.backgroundColor !== 'transparent' && cs.backgroundColor !== 'rgba(0, 0, 0, 0)';
+        var hasBorder = cs && (parseFloat(cs.borderWidth) || 0) > 0 && cs.borderStyle !== 'none';
+        var hasShadow = cs && cs.boxShadow && cs.boxShadow !== 'none';
+
+        var allBtns = curr.querySelectorAll('button, [role="button"], input[type="submit"]');
+        var outsideBtns = 0;
+        var hasSendBtn = false;
+        for (var i = 0; i < allBtns.length; i++) {
+          var b = allBtns[i];
+          if (!targetEl.contains(b)) {
+            outsideBtns++;
+            var aria = (b.getAttribute('aria-label') || '').toLowerCase();
+            var testid = (b.getAttribute('data-testid') || '').toLowerCase();
+            var btype = (b.getAttribute('type') || '').toLowerCase();
+            var bclass = (b.className || '').toString().toLowerCase();
+            if (
+              btype === 'submit' ||
+              aria.includes('send') || aria.includes('submit') || aria.includes('prompt') || aria.includes('post') ||
+              testid.includes('send') || testid.includes('submit') ||
+              bclass.includes('send') || bclass.includes('submit')
+            ) {
+              hasSendBtn = true;
+            }
+          }
+        }
+
+        var score = 0;
+        if (outsideBtns > 0) score += 50;
+        if (hasSendBtn) score += 100;
+        if (outsideBtns >= 2) score += 30;
+        if (radiusVal >= 16) score += 60;
+        else if (radiusVal >= 8) score += 25;
+        if (hasBg) score += 20;
+        if (hasBorder || hasShadow) score += 15;
+
+        if (rect.height > targetRect.height + 90) {
+          score -= 80;
+        }
+
+        var enclosesTarget = (rect.width >= targetRect.width - 4) && (rect.height >= targetRect.height - 2);
+
+        if (enclosesTarget && score > bestScore) {
+          bestCandidate = curr;
+          bestScore = score;
+        }
+
+        if (hasSendBtn && radiusVal >= 16 && outsideBtns >= 1 && rect.height <= targetRect.height + 90) {
+          bestCandidate = curr;
+          break;
+        }
+
+        curr = curr.parentElement;
+      }
+
+      if (bestCandidate && bestScore >= 50) {
+        return bestCandidate;
+      }
+    } catch (e) {}
+
+    return targetEl;
+  };
+
+  /**
+   * Extract attached/uploaded files for the current prompt draft.
+   * Inspects the active composer container, file inputs, and platform-specific attachment pills.
+   *
+   * @param {Object} [adapter] Current site adapter
+   * @param {Element} [currentTarget] Active editor element
+   * @returns {Array<{ name: string, type: string, preview?: string }>}
+   */
+  dom.extractAttachments = function (adapter, currentTarget) {
+    if (typeof document === 'undefined') return [];
+
+    if (!adapter && PE.sites && typeof PE.sites.forLocation === 'function') {
+      adapter = PE.sites.forLocation();
+    }
+    adapter = adapter || {};
+
+    var attachments = [];
+    var seenNames = {};
+
+    function addAttachment(name, preview) {
+      if (!name || typeof name !== 'string') return;
+      var cleanName = name.trim();
+      // Clean up common prefix junk like "Remove ", "Delete ", "File: "
+      cleanName = cleanName.replace(/^(?:remove|delete|dismiss|file|attachment)[:\s]+/i, '').trim();
+      if (!cleanName || cleanName.length < 2 || cleanName.length > 120) return;
+      // Filter out UI button text like "Upload", "Attach", "Add files"
+      if (/^(upload|attach|add files?|drop files?|choose file|browse)$/i.test(cleanName)) return;
+
+      var key = cleanName.toLowerCase();
+      if (seenNames[key]) return;
+      seenNames[key] = true;
+
+      var category = detectFileCategory(cleanName);
+      var item = {
+        name: cleanName,
+        type: category
+      };
+      if (preview && typeof preview === 'string' && preview.trim()) {
+        item.preview = preview.trim().slice(0, 400);
+      }
+      attachments.push(item);
+    }
+
+    try {
+      // 1. Find composer container / form enclosing currentTarget
+      var composer = currentTarget ? dom.findOuterInputContainer(currentTarget) : null;
+      if (!composer && currentTarget) {
+        composer = currentTarget.closest('form, main, fieldset, [role="region"], div[class*="input"], div[class*="composer"]') || document.body;
+      }
+      var searchRoot = composer || document.body;
+
+      // 2. Check HTML file inputs in searchRoot
+      var fileInputs = searchRoot.querySelectorAll('input[type="file"]');
+      for (var fi = 0; fi < fileInputs.length; fi++) {
+        var input = fileInputs[fi];
+        if (input.files && input.files.length > 0) {
+          for (var f = 0; f < input.files.length; f++) {
+            var file = input.files[f];
+            addAttachment(file.name);
+          }
+        }
+      }
+
+      // 3. Check attachment selectors
+      var selectors = adapter.attachmentSelectors || [
+        '[data-testid*="attachment"]',
+        '[data-testid*="file"]',
+        '[class*="attachment"]',
+        '[class*="file-item"]',
+        '[class*="file-pill"]',
+        '[class*="file-chip"]',
+        'button[aria-label*="Remove"]',
+        'uploader-file-card'
+      ];
+
+      for (var s = 0; s < selectors.length; s++) {
+        var matches = searchRoot.querySelectorAll(selectors[s]);
+        for (var m = 0; m < matches.length; m++) {
+          var el = matches[m];
+          // Exclude the current text input itself
+          if (currentTarget && (el === currentTarget || el.contains(currentTarget))) {
+            continue;
+          }
+
+          // Try aria-label / title first (e.g. "Remove dataset.csv")
+          var ariaLabel = el.getAttribute('aria-label') || el.getAttribute('title') || '';
+          if (ariaLabel && /\.[a-zA-Z0-9]{2,5}\b/.test(ariaLabel)) {
+            var labelMatch = ariaLabel.match(/([\w\s.-]+\.[a-zA-Z0-9]{1,8})/);
+            if (labelMatch) {
+              addAttachment(labelMatch[1]);
+              continue;
+            }
+          }
+
+          // Try image alt attribute (for image uploads)
+          var img = el.tagName === 'IMG' ? el : el.querySelector('img');
+          if (img) {
+            var alt = img.getAttribute('alt') || '';
+            if (alt && !/^(avatar|user|assistant|icon|logo|gemini|chatgpt|claude)$/i.test(alt)) {
+              addAttachment(alt);
+            }
+          }
+
+          // Try inner text / filename span
+          var text = (el.textContent || '').trim();
+          if (text) {
+            var fileMatch = text.match(/([\w\s.-]+\.[a-zA-Z0-9]{1,8})/);
+            if (fileMatch) {
+              addAttachment(fileMatch[1]);
+            } else if (text.length < 50 && (el.getAttribute('data-testid') || '').indexOf('file') !== -1) {
+              addAttachment(text);
+            }
+          }
+        }
+      }
+
+    } catch (e) {
+      if (PE.C && PE.C.DEBUG) {
+        console.warn('[PE] Failed to extract attachments:', e);
+      }
+    }
+
+    return attachments;
+  };
+
   globalThis.PE.dom = dom;
 
 }());

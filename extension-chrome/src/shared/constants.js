@@ -41,7 +41,9 @@
       /** Content → SW (fire-and-forget): update the toolbar badge */
       ENHANCE_STATUS:    'pe/enhance-status',
       /** Popup → SW: retrieve the last enhancement result */
-      GET_LAST_RESULT:   'pe/get-last-result'
+      GET_LAST_RESULT:   'pe/get-last-result',
+      /** Content/Popup → SW: retrieve aggregated usage stats & limit status */
+      GET_USAGE_STATS:   'pe/get-usage-stats'
     },
 
     // -------------------------------------------------------------------------
@@ -51,7 +53,9 @@
       /** Main settings object (see Section 4.1 schema) */
       SETTINGS:  'pe_settings',
       /** Transient last-result object (see Section 4.2) */
-      RUNTIME:   'pe_runtime'
+      RUNTIME:   'pe_runtime',
+      /** Usage log and limit configuration */
+      USAGE:     'pe_usage'
     },
 
     // -------------------------------------------------------------------------
@@ -107,7 +111,12 @@
       maxContextTurns:   6,
       temperature:       0.3,
       maxOutputTokens:   1500,
-      lastTest:          null
+      lastTest:          null,
+      usageLimits: {
+        daily:   0,
+        weekly:  0,
+        monthly: 0
+      }
     },
 
     // -------------------------------------------------------------------------
@@ -137,7 +146,40 @@
       /** Badge clear delay (ms) after success (✓) */
       BADGE_SUCCESS_CLEAR_MS: 3000,
       /** Badge clear delay (ms) after error (!) */
-      BADGE_ERROR_CLEAR_MS:   5000
+      BADGE_ERROR_CLEAR_MS:   5000,
+      /** Maximum number of usage log entries to keep (rolling) */
+      MAX_USAGE_LOG_ENTRIES:  500
+    },
+
+    // -------------------------------------------------------------------------
+    // Model pricing table (USD per 1M tokens) — PE.C.MODEL_PRICING
+    // Used for approximate cost estimates only. Prices may drift; marked with ~.
+    // Structure: { modelSubstring: { input: $/1M, output: $/1M } }
+    // Matched by checking if the model id includes the key (longest match wins).
+    // -------------------------------------------------------------------------
+    MODEL_PRICING: {
+      'gpt-4o-mini':          { input: 0.15,   output: 0.60  },
+      'gpt-4o':               { input: 5.00,   output: 15.00 },
+      'gpt-4-turbo':          { input: 10.00,  output: 30.00 },
+      'gpt-3.5-turbo':        { input: 0.50,   output: 1.50  },
+      'claude-3-5-sonnet':    { input: 3.00,   output: 15.00 },
+      'claude-3-5-haiku':     { input: 0.80,   output: 4.00  },
+      'claude-3-opus':        { input: 15.00,  output: 75.00 },
+      'claude-3-sonnet':      { input: 3.00,   output: 15.00 },
+      'claude-3-haiku':       { input: 0.25,   output: 1.25  },
+      'gemini-1.5-flash':     { input: 0.075,  output: 0.30  },
+      'gemini-1.5-pro':       { input: 3.50,   output: 10.50 },
+      'gemini-2.0-flash':     { input: 0.10,   output: 0.40  },
+      'gemini-4-argon':       { input: 2.50,   output: 10.00 },
+      'argon':                { input: 2.50,   output: 10.00 },
+      'llama-3.1-70b':        { input: 0.40,   output: 0.40  },
+      'llama-3.1-8b':         { input: 0.05,   output: 0.05  },
+      'llama-3.3-70b':        { input: 0.40,   output: 0.40  },
+      'mistral-7b':           { input: 0.07,   output: 0.07  },
+      'mixtral-8x7b':         { input: 0.24,   output: 0.24  },
+      'deepseek-v3':          { input: 0.14,   output: 0.28  },
+      'deepseek-r1':          { input: 0.55,   output: 2.19  },
+      'qwen-2.5-72b':         { input: 0.35,   output: 0.40  }
     }
 
   };

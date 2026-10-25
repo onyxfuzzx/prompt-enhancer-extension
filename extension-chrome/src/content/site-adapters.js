@@ -40,7 +40,16 @@
         '[data-testid^="conversation-turn-"]'
       ],
       userRoleSelector: '[data-message-author-role="user"], [data-testid="user-message"]',
-      assistantRoleSelector: '[data-message-author-role="assistant"], [data-testid="assistant-message"], [data-message-model-slug]'
+      assistantRoleSelector: '[data-message-author-role="assistant"], [data-testid="assistant-message"], [data-message-model-slug]',
+      attachmentSelectors: [
+        '[data-testid*="attachment"]',
+        '[data-testid*="file-thumbnail"]',
+        '[data-testid*="file"]',
+        '[class*="attachment"]',
+        '[class*="file-item"]',
+        'button[aria-label*="Remove"]',
+        '.text-token-text-primary'
+      ]
     },
     {
       id: 'claude',
@@ -64,7 +73,14 @@
         'div[data-is-streaming]'
       ],
       userRoleSelector: '[data-testid="user-message"], .font-user-message, [data-is-user="true"]',
-      assistantRoleSelector: '[data-testid="assistant-message"], .font-claude-message, .standard-markdown'
+      assistantRoleSelector: '[data-testid="assistant-message"], .font-claude-message, .standard-markdown',
+      attachmentSelectors: [
+        '[data-testid="file-thumbnail"]',
+        '[data-testid*="file"]',
+        '[aria-label*="Remove file"]',
+        'div[class*="file-thumbnail"]',
+        'div[class*="file-preview"]'
+      ]
     },
     {
       id: 'gemini',
@@ -89,7 +105,66 @@
         '.model-response-text'
       ],
       userRoleSelector: 'user-query, .user-query-container, .query-text, [data-sender="user"]',
-      assistantRoleSelector: 'model-response, .response-container, .model-response-text, [data-sender="model"]'
+      assistantRoleSelector: 'model-response, .response-container, .model-response-text, [data-sender="model"]',
+      attachmentSelectors: [
+        'uploader-file-card',
+        '[data-test-id*="file"]',
+        '[data-test-id*="attachment"]',
+        '.file-preview',
+        '.attachment-chip',
+        'img[alt]'
+      ]
+    },
+    {
+      id: 'perplexity',
+      name: 'Perplexity',
+      hostMatch: /^(?:.*\.)?perplexity\.ai$/i,
+      inputSelectors: [
+        'textarea[placeholder]',
+        'textarea',
+        '[contenteditable="true"][role="textbox"]',
+        '[contenteditable="true"]'
+      ],
+      editorType: 'auto',
+      preferredWriteStrategy: 'auto',
+      turnSelectors: [
+        '[data-testid="user-message"]',
+        '[data-testid="assistant-message"]',
+        '.prose',
+        'article'
+      ],
+      userRoleSelector: '[data-testid="user-message"], .user-message',
+      assistantRoleSelector: '[data-testid="assistant-message"], .prose, .assistant-message',
+      attachmentSelectors: [
+        '[data-testid*="file"]',
+        '.file-attachment',
+        '[class*="attachment"]',
+        'button[aria-label*="Remove"]'
+      ]
+    },
+    {
+      id: 'deepseek',
+      name: 'DeepSeek',
+      hostMatch: /^(?:.*\.)?chat\.deepseek\.com$/i,
+      inputSelectors: [
+        'textarea',
+        '[contenteditable="true"]',
+        '#chat-input'
+      ],
+      editorType: 'auto',
+      preferredWriteStrategy: 'auto',
+      turnSelectors: [
+        '.ds-markdown',
+        '[class*="message"]',
+        'article'
+      ],
+      userRoleSelector: '[class*="user-message"], [data-role="user"]',
+      assistantRoleSelector: '.ds-markdown, [class*="assistant-message"], [data-role="assistant"]',
+      attachmentSelectors: [
+        '[class*="file-item"]',
+        '[class*="attachment"]',
+        '[class*="upload-item"]'
+      ]
     },
     {
       id: 'generic',
@@ -115,7 +190,16 @@
         'article'
       ],
       userRoleSelector: '[data-message-author-role="user"], [data-role="user"], .user-message',
-      assistantRoleSelector: '[data-message-author-role="assistant"], [data-role="assistant"], .assistant-message, .bot-message'
+      assistantRoleSelector: '[data-message-author-role="assistant"], [data-role="assistant"], .assistant-message, .bot-message',
+      attachmentSelectors: [
+        'input[type="file"]',
+        '[class*="attachment"]',
+        '[class*="file-pill"]',
+        '[class*="file-chip"]',
+        '[class*="file-preview"]',
+        '[data-testid*="attachment"]',
+        '[data-testid*="file"]'
+      ]
     }
   ];
 

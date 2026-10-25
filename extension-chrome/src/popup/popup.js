@@ -88,6 +88,44 @@
   var saveStatus        = document.getElementById('save-status');
   var footerVersion     = document.getElementById('footer-version');
 
+  // Usage limits inputs (Settings panel)
+  var limitDaily        = document.getElementById('limit-daily');
+  var limitWeekly       = document.getElementById('limit-weekly');
+  var limitMonthly      = document.getElementById('limit-monthly');
+  var btnSaveLimits     = document.getElementById('btn-save-limits');
+  var btnClearUsage     = document.getElementById('btn-clear-usage');
+  var limitsSaveStatus  = document.getElementById('limits-save-status');
+
+  // Stats panel elements
+  var tabStats          = document.getElementById('tab-stats');
+  var panelStats        = document.getElementById('panel-stats');
+  var statToday         = document.getElementById('stat-today');
+  var statWeek          = document.getElementById('stat-week');
+  var statMonth         = document.getElementById('stat-month');
+  var statAlltime       = document.getElementById('stat-alltime');
+  var statEnhanceToday  = document.getElementById('stat-enhance-today');
+  var statEnhanceAll    = document.getElementById('stat-enhance-alltime');
+  var statGrammarToday  = document.getElementById('stat-grammar-today');
+  var statGrammarAll    = document.getElementById('stat-grammar-alltime');
+  var statsBarChart     = document.getElementById('stats-bar-chart');
+  var statsDayLabels    = document.getElementById('stats-day-labels');
+  var statTokensIn      = document.getElementById('stat-tokens-in');
+  var statTokensOut     = document.getElementById('stat-tokens-out');
+  var statTokensTotal   = document.getElementById('stat-tokens-total');
+  var statCost          = document.getElementById('stat-cost');
+  var statLatency       = document.getElementById('stat-latency');
+  var statsTopSites     = document.getElementById('stats-top-sites');
+  var statsLogInfo      = document.getElementById('stats-log-info');
+  var statsLimitBanner  = document.getElementById('stats-limit-banner');
+  var statsLimitBannerText = document.getElementById('stats-limit-banner-text');
+  var btnGotoLimits     = document.getElementById('btn-goto-limits');
+
+  // Usage meter (Enhance tab)
+  var usageMeterWrap    = document.getElementById('usage-meter-wrap');
+  var usageMeterLabel   = document.getElementById('usage-meter-label');
+  var usageMeterPct     = document.getElementById('usage-meter-pct');
+  var usageMeterBar     = document.getElementById('usage-meter-bar');
+
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
@@ -101,59 +139,71 @@
   var lastPingResponse = null; // Last detected page target status
 
   // ---------------------------------------------------------------------------
-  // Tab Switching
+  // Tab Switching (3-tab: enhance / settings / stats)
   // ---------------------------------------------------------------------------
   function activateTab(which) {
-    var isEnhance = (which === 'enhance');
+    var tabs   = ['enhance', 'settings', 'stats'];
+    var tabEls = { enhance: tabEnhance, settings: tabSettings, stats: tabStats };
+    var panelEls = { enhance: panelEnhance, settings: panelSettings, stats: panelStats };
 
-    tabEnhance.classList.toggle('is-active', isEnhance);
-    tabEnhance.setAttribute('aria-selected', String(isEnhance));
-    tabEnhance.setAttribute('tabindex', isEnhance ? '0' : '-1');
+    tabs.forEach(function (t) {
+      var isActive = (t === which);
+      if (tabEls[t]) {
+        tabEls[t].classList.toggle('is-active', isActive);
+        tabEls[t].setAttribute('aria-selected', String(isActive));
+        tabEls[t].setAttribute('tabindex', isActive ? '0' : '-1');
+      }
+      if (panelEls[t]) {
+        panelEls[t].classList.toggle('hidden', !isActive);
+      }
+    });
 
-    tabSettings.classList.toggle('is-active', !isEnhance);
-    tabSettings.setAttribute('aria-selected', String(!isEnhance));
-    tabSettings.setAttribute('tabindex', isEnhance ? '-1' : '0');
-
-    panelEnhance.classList.toggle('hidden', !isEnhance);
-    panelSettings.classList.toggle('hidden', isEnhance);
-
-    if (isEnhance) {
+    if (which === 'enhance') {
       updateLastResultUI();
+      updateUsageMeter();
+    }
+    if (which === 'stats') {
+      loadStatsPanel();
+    }
+    if (which === 'settings') {
+      loadLimitInputs();
     }
   }
 
-  tabEnhance.addEventListener('click', function () { activateTab('enhance'); });
-  tabSettings.addEventListener('click', function () { activateTab('settings'); });
+  if (tabEnhance)  { tabEnhance.addEventListener('click',  function () { activateTab('enhance');  }); }
+  if (tabSettings) { tabSettings.addEventListener('click', function () { activateTab('settings'); }); }
+  if (tabStats)    { tabStats.addEventListener('click',    function () { activateTab('stats');    }); }
 
   function onTabKeyDown(e) {
-    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    var tabOrder = ['enhance', 'settings', 'stats'];
+    var tabEls   = [tabEnhance, tabSettings, tabStats];
+    var current  = tabOrder.findIndex(function (t) {
+      var el = { enhance: tabEnhance, settings: tabSettings, stats: tabStats }[t];
+      return el && el.classList.contains('is-active');
+    });
+    if (e.key === 'ArrowRight') {
       e.preventDefault();
-      var currentlyOnEnhance = tabEnhance.classList.contains('is-active');
-      if (currentlyOnEnhance) {
-        activateTab('settings');
-        tabSettings.focus();
-      } else {
-        activateTab('enhance');
-        tabEnhance.focus();
-      }
+      var next = (current + 1) % tabOrder.length;
+      activateTab(tabOrder[next]);
+      if (tabEls[next]) { tabEls[next].focus(); }
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      var prev = (current - 1 + tabOrder.length) % tabOrder.length;
+      activateTab(tabOrder[prev]);
+      if (tabEls[prev]) { tabEls[prev].focus(); }
     }
   }
 
-  tabEnhance.addEventListener('keydown', onTabKeyDown);
-  tabSettings.addEventListener('keydown', onTabKeyDown);
+  if (tabEnhance)  { tabEnhance.addEventListener('keydown',  onTabKeyDown); }
+  if (tabSettings) { tabSettings.addEventListener('keydown', onTabKeyDown); }
+  if (tabStats)    { tabStats.addEventListener('keydown',    onTabKeyDown); }
 
   // Active model chip opens settings
   activeModelChip.addEventListener('click', function () {
     activateTab('settings');
   });
 
-  // Shortcut change link opens chrome://extensions/shortcuts
-  linkShortcuts.addEventListener('click', function (e) {
-    e.preventDefault();
-    if (chrome.tabs && chrome.tabs.create) {
-      chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
-    }
-  });
+  // Shortcut change link — handled in updateShortcutHint section below
 
   // ---------------------------------------------------------------------------
   // Collapsibles (Manual Mode Studio & Advanced Section)
@@ -164,6 +214,10 @@
       manualToggle.setAttribute('aria-expanded', String(!isExpanded));
       manualSection.classList.toggle('hidden', isExpanded);
       panelEnhance.classList.toggle('has-manual-open', !isExpanded);
+      // Auto-focus the manual input textarea when expanding
+      if (!isExpanded && manualInput) {
+        setTimeout(function () { manualInput.focus(); }, 80);
+      }
     });
   }
 
@@ -272,6 +326,9 @@
   function checkDirty() {
     var dirty = isFormDirty();
     unsavedIndicator.classList.toggle('hidden', !dirty);
+    if (btnSave) {
+      btnSave.classList.toggle('pe-btn--dirty', dirty);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -348,8 +405,17 @@
 
   inputTemperature.addEventListener('input', function () {
     temperatureValue.textContent = inputTemperature.value;
+    // Update slider fill CSS custom property for visual gradient
+    var fill = ((parseFloat(inputTemperature.value) - 0) / (1 - 0)) * 100;
+    inputTemperature.style.setProperty('--pe-range-fill', fill + '%');
     checkDirty();
   });
+
+  // Initialize the slider fill on load
+  function updateSliderFill() {
+    var fill = ((parseFloat(inputTemperature.value) - 0) / (1 - 0)) * 100;
+    inputTemperature.style.setProperty('--pe-range-fill', fill + '%');
+  }
 
   inputMaxTokens.addEventListener('input', checkDirty);
 
@@ -374,10 +440,34 @@
     if (chipLabel) {
       if (model) {
         chipLabel.textContent = adapter.label + ' · ' + model;
+        activeModelChip.title = 'Click to configure · Double-click to copy model name';
       } else {
         chipLabel.textContent = adapter.label + ' · No model configured';
+        activeModelChip.title = 'Click to configure model in Settings';
       }
     }
+  }
+
+  if (activeModelChip) {
+    activeModelChip.addEventListener('dblclick', function (e) {
+      e.stopPropagation();
+      if (!savedSettings) { return; }
+      var p = savedSettings.provider;
+      var model = (savedSettings.models && savedSettings.models[p]) || '';
+      if (!model) { return; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(model).then(function () {
+          var chipLabel = activeModelChip.querySelector('.pe-chip-label');
+          if (chipLabel) {
+            var orig = chipLabel.textContent;
+            chipLabel.textContent = 'Copied: ' + model;
+            setTimeout(function () {
+              chipLabel.textContent = orig;
+            }, 1400);
+          }
+        });
+      }
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -392,6 +482,20 @@
       opt.value = m.id;
       opt.textContent = m.name + (m.free ? ' [Free]' : '');
       datalistModels.appendChild(opt);
+    });
+  }
+
+  // Quick model suggestion buttons
+  var suggestionBtns = document.querySelectorAll('.pe-model-suggestion');
+  for (var i = 0; i < suggestionBtns.length; i++) {
+    suggestionBtns[i].addEventListener('click', function () {
+      var targetModel = this.getAttribute('data-model');
+      if (targetModel && inputModel) {
+        inputModel.value = targetModel;
+        updateDraftFromForm();
+        checkDirty();
+        inputModel.focus();
+      }
     });
   }
 
@@ -687,6 +791,7 @@
     rulesCounter.textContent = (s.customSystemRules || '').length + ' / 4000';
     inputTemperature.value = (typeof s.temperature === 'number') ? s.temperature : 0.3;
     temperatureValue.textContent = inputTemperature.value;
+    updateSliderFill();
     inputMaxTokens.value = s.maxOutputTokens || 1500;
 
     syncProviderUI();
@@ -783,6 +888,23 @@
         contextStatus.innerHTML = SVG_CHAT + '<span>' + res.contextCount + ' message' + (res.contextCount === 1 ? '' : 's') + ' in chat context</span>';
       } else {
         contextStatusRow.classList.add('hidden');
+      }
+    }
+
+    // Attachments detected on active web page
+    var attachmentsRow = document.getElementById('attachments-status-row');
+    var attachmentsStatus = document.getElementById('attachments-status');
+    if (attachmentsRow && attachmentsStatus) {
+      if (Array.isArray(res.attachments) && res.attachments.length > 0) {
+        var first = res.attachments[0].name;
+        var label = res.attachments.length === 1
+          ? first
+          : (first + ' +' + (res.attachments.length - 1));
+        attachmentsStatus.textContent = label;
+        attachmentsStatus.title = res.attachments.map(function (a) { return a.name + (a.type ? ' (' + a.type + ')' : ''); }).join(', ');
+        attachmentsRow.classList.remove('hidden');
+      } else {
+        attachmentsRow.classList.add('hidden');
       }
     }
 
@@ -940,12 +1062,15 @@
     btnManualEnhance.innerHTML = '<span class="pe-spinner"></span><span>Enhancing…</span>';
     setStatus(manualStatus, 'Enhancing prompt…', 'muted');
     btnManualCopy.disabled = true;
+    var enhanceStartTime = Date.now();
 
     chrome.runtime.sendMessage({
       type: PE.C.MSG.ENHANCE_PROMPT,
       text: text,
+      attachments: manualAttachments,
       source: 'manual'
     }, function (res) {
+      var enhanceDuration = Date.now() - enhanceStartTime;
       btnManualEnhance.disabled = false;
       btnManualEnhance.innerHTML = SVG_WAND_SM + '<span>Enhance</span>';
 
@@ -957,8 +1082,10 @@
       if (res && res.ok && res.enhancedText) {
         manualOutput.value = res.enhancedText;
         btnManualCopy.disabled = false;
-        setStatus(manualStatus, 'Enhanced successfully', 'ok');
+        var durationStr = (enhanceDuration / 1000).toFixed(1) + 's';
+        setStatus(manualStatus, 'Enhanced in ' + durationStr, 'ok');
         updateLastResultUI();
+        updateManualCharCount();
       } else {
         var err = (res && res.error) || {};
         var msg = err.message || 'Enhancement failed.';
@@ -1022,6 +1149,142 @@
       }, 2000);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Manual Mode: Character Counter & Ctrl+Enter Shortcut
+  // ---------------------------------------------------------------------------
+  var manualCharEl = document.getElementById('manual-char-count');
+
+  function updateManualCharCount() {
+    if (!manualCharEl) { return; }
+    var len = manualInput.value.length;
+    manualCharEl.textContent = len > 0 ? (len + ' chars') : '';
+    manualCharEl.classList.toggle('has-text', len > 0);
+  }
+
+  if (manualInput) {
+    manualInput.addEventListener('input', updateManualCharCount);
+  }
+
+  // Ctrl+Enter triggers enhance in manual mode
+  if (manualInput) {
+    manualInput.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (!btnManualEnhance.disabled) {
+          btnManualEnhance.click();
+        }
+      }
+    });
+  }
+
+  // Manual Mode: Clear button
+  var btnManualClear = document.getElementById('btn-manual-clear');
+  if (btnManualClear) {
+    btnManualClear.addEventListener('click', function () {
+      manualInput.value = '';
+      manualOutput.value = '';
+      manualAttachments = [];
+      renderManualAttachments();
+      btnManualCopy.disabled = true;
+      manualStatus.innerHTML = '';
+      updateManualCharCount();
+      manualInput.focus();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Manual Mode: Context File Attachments
+  // ---------------------------------------------------------------------------
+  var manualAttachments = [];
+  var btnManualAttach = document.getElementById('btn-manual-attach');
+  var manualFileInput = document.getElementById('manual-file-input');
+  var manualAttachmentsList = document.getElementById('manual-attachments-list');
+
+  function renderManualAttachments() {
+    if (!manualAttachmentsList) return;
+    manualAttachmentsList.innerHTML = '';
+    manualAttachments.forEach(function (att, idx) {
+      var pill = document.createElement('div');
+      pill.className = 'pe-attachment-pill';
+
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'pe-attachment-pill-name';
+      nameSpan.textContent = att.name;
+      nameSpan.title = att.name + (att.size ? ' (' + att.size + ')' : '');
+      pill.appendChild(nameSpan);
+
+      if (att.size) {
+        var sizeSpan = document.createElement('span');
+        sizeSpan.className = 'pe-attachment-pill-size';
+        sizeSpan.textContent = att.size;
+        pill.appendChild(sizeSpan);
+      }
+
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'pe-attachment-remove';
+      removeBtn.innerHTML = '×';
+      removeBtn.title = 'Remove ' + att.name;
+      removeBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        manualAttachments.splice(idx, 1);
+        renderManualAttachments();
+      });
+      pill.appendChild(removeBtn);
+
+      manualAttachmentsList.appendChild(pill);
+    });
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes || bytes < 1024) return (bytes || 0) + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  if (btnManualAttach && manualFileInput) {
+    btnManualAttach.addEventListener('click', function () {
+      manualFileInput.click();
+    });
+
+    manualFileInput.addEventListener('change', function () {
+      var files = manualFileInput.files;
+      if (!files || files.length === 0) return;
+
+      var readCount = 0;
+      var total = files.length;
+
+      for (var i = 0; i < files.length; i++) {
+        (function (file) {
+          var reader = new FileReader();
+          reader.onload = function (e) {
+            var content = e.target.result;
+            var preview = (typeof content === 'string') ? content.slice(0, 12000) : '';
+            manualAttachments.push({
+              name: file.name,
+              type: file.type || 'Text/Code',
+              size: formatBytes(file.size),
+              preview: preview
+            });
+            readCount++;
+            if (readCount === total) {
+              renderManualAttachments();
+              manualFileInput.value = '';
+            }
+          };
+          reader.onerror = function () {
+            readCount++;
+            if (readCount === total) {
+              renderManualAttachments();
+              manualFileInput.value = '';
+            }
+          };
+          reader.readAsText(file);
+        }(files[i]));
+      }
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Copy Last Result
@@ -1105,6 +1368,262 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Stats tab: "Set Limits" button navigates to Settings → limits card
+  // ---------------------------------------------------------------------------
+  if (btnGotoLimits) {
+    btnGotoLimits.addEventListener('click', function () {
+      activateTab('settings');
+      var limitsCard = document.querySelector('.pe-settings-card:last-of-type');
+      if (limitsCard) { limitsCard.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Cost Estimation Utility
+  // ---------------------------------------------------------------------------
+  function estimateCostUSD(inputTokens, outputTokens, model) {
+    var pricing = (PE.C && PE.C.MODEL_PRICING) || {};
+    var modelLower = (model || '').toLowerCase();
+    var bestKey = '';
+    var bestPricing = null;
+
+    // Longest matching key wins
+    for (var key in pricing) {
+      if (Object.prototype.hasOwnProperty.call(pricing, key)) {
+        if (modelLower.indexOf(key) !== -1 && key.length > bestKey.length) {
+          bestKey = key;
+          bestPricing = pricing[key];
+        }
+      }
+    }
+
+    if (!bestPricing) { return null; } // Unknown model
+
+    var cost = (inputTokens / 1000000) * bestPricing.input +
+               (outputTokens / 1000000) * bestPricing.output;
+    return cost;
+  }
+
+  function formatCost(cost) {
+    if (cost === null || cost === undefined) { return '~Unknown'; }
+    if (cost < 0.0001) { return '~$0.00'; }
+    if (cost < 0.01)   { return '~$' + cost.toFixed(5); }
+    if (cost < 1)      { return '~$' + cost.toFixed(4); }
+    return '~$' + cost.toFixed(2);
+  }
+
+  function formatTokens(n) {
+    if (n >= 1000000) { return (n / 1000000).toFixed(1) + 'M'; }
+    if (n >= 1000)    { return (n / 1000).toFixed(1) + 'K'; }
+    return String(n);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Usage Meter (Enhance tab inline indicator)
+  // ---------------------------------------------------------------------------
+  function updateUsageMeter() {
+    if (!usageMeterWrap) { return; }
+    PE.storage.checkLimits().then(function (result) {
+      // Only show the meter if a daily limit is set
+      var dailyLimit = result.daily && result.daily.limit;
+      if (!dailyLimit || dailyLimit <= 0) {
+        usageMeterWrap.classList.add('hidden');
+        return;
+      }
+      var used = result.daily.used;
+      var pct  = Math.min(100, Math.round((used / dailyLimit) * 100));
+      usageMeterWrap.classList.remove('hidden');
+      usageMeterLabel.textContent = 'Today: ' + used + ' / ' + dailyLimit + ' uses';
+      usageMeterPct.textContent   = pct + '%';
+      usageMeterBar.style.width   = pct + '%';
+
+      if (pct >= 80) {
+        usageMeterBar.classList.add('is-warning');
+      } else {
+        usageMeterBar.classList.remove('is-warning');
+      }
+    }).catch(function () {
+      usageMeterWrap.classList.add('hidden');
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Stats Panel Renderer
+  // ---------------------------------------------------------------------------
+  function renderBarChart(buckets) {
+    if (!statsBarChart || !statsDayLabels) { return; }
+    var max = Math.max.apply(null, buckets.concat([1]));
+    var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    var today = new Date().getDay(); // 0=Sun
+    var chartHtml  = '';
+    var labelsHtml = '';
+
+    for (var i = 0; i < 7; i++) {
+      var val   = buckets[i] || 0;
+      var heightPct = Math.round((val / max) * 100);
+      var isToday = (i === 6);
+      var barClass = isToday ? 'pe-bar-chart-bar pe-bar-chart-bar--today' :
+                     val > 0  ? 'pe-bar-chart-bar pe-bar-chart-bar--past' :
+                                'pe-bar-chart-bar pe-bar-chart-bar--zero';
+
+      // Which calendar day is this slot?
+      var dayOffset = 6 - i; // 0 = today, 6 = oldest
+      var dayIdx    = (today - dayOffset + 7) % 7;
+      var dayLabel  = days[dayIdx];
+
+      chartHtml  += '<div class="pe-bar-chart-col">';
+      chartHtml  += '<div class="' + barClass + '" style="height:' + Math.max(3, heightPct) + '%" data-val="' + val + '"></div>';
+      chartHtml  += '</div>';
+      labelsHtml += '<div class="pe-bar-chart-day' + (isToday ? ' is-today' : '') + '">' + dayLabel + '</div>';
+    }
+
+    statsBarChart.innerHTML  = chartHtml;
+    statsDayLabels.innerHTML = labelsHtml;
+  }
+
+  function renderTopSites(topDomains) {
+    if (!statsTopSites) { return; }
+    if (!topDomains || topDomains.length === 0) {
+      statsTopSites.innerHTML = '<span class="pe-stats-empty">No data yet</span>';
+      return;
+    }
+    var maxCount = topDomains[0].count || 1;
+    var html = '';
+    topDomains.forEach(function (item) {
+      var pct = Math.round((item.count / maxCount) * 100);
+      html += '<div class="pe-top-site-row">';
+      html += '<span class="pe-top-site-name" title="' + item.domain + '">' + item.domain + '</span>';
+      html += '<div class="pe-top-site-bar-bg"><div class="pe-top-site-bar" style="width:' + pct + '%"></div></div>';
+      html += '<span class="pe-top-site-count">' + item.count + '</span>';
+      html += '</div>';
+    });
+    statsTopSites.innerHTML = html;
+  }
+
+  function loadStatsPanel() {
+    PE.storage.getUsageStats().then(function (stats) {
+      // Counter cards
+      if (statToday)   { statToday.textContent   = stats.counts.today;   }
+      if (statWeek)    { statWeek.textContent     = stats.counts.week;    }
+      if (statMonth)   { statMonth.textContent    = stats.counts.month;   }
+      if (statAlltime) { statAlltime.textContent  = stats.counts.allTime; }
+
+      // By type
+      if (statEnhanceToday) { statEnhanceToday.textContent = stats.byType.enhance.today;   }
+      if (statEnhanceAll)   { statEnhanceAll.textContent   = stats.byType.enhance.allTime; }
+      if (statGrammarToday) { statGrammarToday.textContent = stats.byType.grammar.today;   }
+      if (statGrammarAll)   { statGrammarAll.textContent   = stats.byType.grammar.allTime; }
+
+      // 7-day bar chart
+      renderBarChart(stats.dailyBuckets);
+
+      // Tokens
+      if (statTokensIn)    { statTokensIn.textContent    = formatTokens(stats.tokens.input);  }
+      if (statTokensOut)   { statTokensOut.textContent   = formatTokens(stats.tokens.output); }
+      if (statTokensTotal) { statTokensTotal.textContent = formatTokens(stats.tokens.total);  }
+
+      // Cost estimate — uses the current settings model
+      PE.storage.getSettings().then(function (settings) {
+        var model = (settings.models && settings.models[settings.provider]) || '';
+        var cost = estimateCostUSD(stats.tokens.input, stats.tokens.output, model);
+        if (statCost) {
+          statCost.textContent = (cost !== null)
+            ? formatCost(cost)
+            : '~Unknown model';
+        }
+      }).catch(function () {
+        if (statCost) { statCost.textContent = '~Unknown'; }
+      });
+
+      // Latency
+      if (statLatency) {
+        statLatency.textContent = stats.avgLatencyMs > 0
+          ? (stats.avgLatencyMs / 1000).toFixed(2) + 's avg'
+          : '—';
+      }
+
+      // Top sites
+      renderTopSites(stats.topDomains);
+
+      // Log info footer
+      if (statsLogInfo) {
+        statsLogInfo.textContent = 'Tracking ' + stats.logLength + ' of up to 500 calls · Stored locally';
+      }
+
+      // Limit banner
+      PE.storage.checkLimits().then(function (limitResult) {
+        if (!statsLimitBanner) { return; }
+        if (!limitResult.ok) {
+          var msg = limitResult.exceeded.charAt(0).toUpperCase() + limitResult.exceeded.slice(1) +
+                    ' limit reached: ' + limitResult.used + '/' + limitResult.limit + ' uses';
+          if (statsLimitBannerText) { statsLimitBannerText.textContent = msg; }
+          statsLimitBanner.classList.remove('hidden');
+        } else {
+          statsLimitBanner.classList.add('hidden');
+        }
+      }).catch(function () {
+        if (statsLimitBanner) { statsLimitBanner.classList.add('hidden'); }
+      });
+    }).catch(function (err) {
+      if (PE.C.DEBUG) { console.warn('[PE] Failed to load stats:', err); }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Limits Settings — Load & Save
+  // ---------------------------------------------------------------------------
+  function loadLimitInputs() {
+    PE.storage.getSettings().then(function (settings) {
+      var lim = (settings && settings.usageLimits) || { daily: 0, weekly: 0, monthly: 0 };
+      if (limitDaily)   { limitDaily.value   = lim.daily   || 0; }
+      if (limitWeekly)  { limitWeekly.value  = lim.weekly  || 0; }
+      if (limitMonthly) { limitMonthly.value = lim.monthly || 0; }
+    }).catch(function () {});
+  }
+
+  if (btnSaveLimits) {
+    btnSaveLimits.addEventListener('click', function () {
+      var limits = {
+        daily:   parseInt((limitDaily   && limitDaily.value)   || '0', 10),
+        weekly:  parseInt((limitWeekly  && limitWeekly.value)  || '0', 10),
+        monthly: parseInt((limitMonthly && limitMonthly.value) || '0', 10)
+      };
+
+      // Also persist into settings.usageLimits
+      PE.storage.saveSettings({ usageLimits: limits }).then(function () {
+        if (limitsSaveStatus) {
+          limitsSaveStatus.innerHTML = SVG_CHECK + ' Saved';
+          setTimeout(function () { if (limitsSaveStatus) { limitsSaveStatus.textContent = ''; } }, 2500);
+        }
+        updateUsageMeter();
+      }).catch(function () {
+        if (limitsSaveStatus) {
+          limitsSaveStatus.innerHTML = SVG_ERROR + ' Failed';
+          setTimeout(function () { if (limitsSaveStatus) { limitsSaveStatus.textContent = ''; } }, 2500);
+        }
+      });
+    });
+  }
+
+  if (btnClearUsage) {
+    btnClearUsage.addEventListener('click', function () {
+      if (!confirm('Clear all recorded usage history? This cannot be undone.')) { return; }
+      PE.storage.clearUsage().then(function () {
+        if (limitsSaveStatus) {
+          limitsSaveStatus.innerHTML = SVG_CHECK + ' History cleared';
+          setTimeout(function () { if (limitsSaveStatus) { limitsSaveStatus.textContent = ''; } }, 2500);
+        }
+        updateUsageMeter();
+      }).catch(function () {
+        if (limitsSaveStatus) {
+          limitsSaveStatus.innerHTML = SVG_ERROR + ' Failed';
+          setTimeout(function () { if (limitsSaveStatus) { limitsSaveStatus.textContent = ''; } }, 2500);
+        }
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // Startup
   // ---------------------------------------------------------------------------
   function init() {
@@ -1120,6 +1639,7 @@
     pingActiveTab();
     updateShortcutHint();
     updateLastResultUI();
+    updateUsageMeter();
 
     // Load stored settings
     PE.storage.getSettings().then(function (s) {
@@ -1136,4 +1656,8 @@
     init();
   }
 
+  // Initial slider fill
+  updateSliderFill();
+
 }());
+

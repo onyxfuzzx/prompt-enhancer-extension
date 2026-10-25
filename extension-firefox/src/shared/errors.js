@@ -42,7 +42,8 @@
     UNSUPPORTED_PAGE:     'UNSUPPORTED_PAGE',
     NOT_IMPLEMENTED:      'NOT_IMPLEMENTED',
     UNKNOWN_MESSAGE:      'UNKNOWN_MESSAGE',
-    UNKNOWN:              'UNKNOWN'
+    UNKNOWN:              'UNKNOWN',
+    LIMIT_REACHED:        'LIMIT_REACHED'
   };
 
   /**
@@ -168,6 +169,9 @@
 
       case CODES.UNKNOWN_MESSAGE:
         return "Unknown message type.";
+
+      case CODES.LIMIT_REACHED:
+        return "Usage limit reached. Adjust your limits in Settings \u2192 Stats.";
 
       default:
         return (err && err.message) ? err.message : "An unexpected error occurred.";

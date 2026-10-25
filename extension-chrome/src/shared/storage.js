@@ -314,6 +314,247 @@
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Usage Tracking (pe_usage)
+  // ---------------------------------------------------------------------------
+
+  var USAGE_KEY    = (PE.C && PE.C.STORAGE_KEYS && PE.C.STORAGE_KEYS.USAGE) || 'pe_usage';
+  var MAX_ENTRIES  = (PE.C && PE.C.LIMITS && PE.C.LIMITS.MAX_USAGE_LOG_ENTRIES) || 500;
+
+  /**
+   * Load raw usage data from storage.
+   * @returns {Promise<Object>} { log: [], limits: { daily, weekly, monthly } }
+   */
+  function loadUsageData() {
+    return new Promise(function (resolve, reject) {
+      driver.get(USAGE_KEY, function (res) {
+        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.lastError) {
+          return reject(chrome.runtime.lastError);
+        }
+        var data = (res && res[USAGE_KEY]) || {};
+        resolve({
+          log: Array.isArray(data.log) ? data.log : [],
+          limits: data.limits || { daily: 0, weekly: 0, monthly: 0 }
+        });
+      });
+    });
+  }
+
+  /**
+   * Save raw usage data back to storage.
+   * @param {Object} data { log, limits }
+   * @returns {Promise<void>}
+   */
+  function saveUsageData(data) {
+    return new Promise(function (resolve, reject) {
+      var payload = {};
+      payload[USAGE_KEY] = data;
+      driver.set(payload, function () {
+        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.lastError) {
+          return reject(chrome.runtime.lastError);
+        }
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Record a single enhancement/grammar usage event.
+   * @param {Object} entry
+   *   { type: 'enhance'|'grammar', provider, model, domain, inputChars, outputChars, latencyMs }
+   * @returns {Promise<void>}
+   */
+  function recordUsage(entry) {
+    if (!entry) { return Promise.resolve(); }
+    return loadUsageData().then(function (data) {
+      var newEntry = {
+        ts:          Date.now(),
+        type:        entry.type        || 'enhance',
+        provider:    entry.provider    || '',
+        model:       entry.model       || '',
+        domain:      entry.domain      || '',
+        inputChars:  entry.inputChars  || 0,
+        outputChars: entry.outputChars || 0,
+        latencyMs:   entry.latencyMs   || 0
+      };
+      data.log.push(newEntry);
+      // Rolling cap: keep most recent MAX_ENTRIES
+      if (data.log.length > MAX_ENTRIES) {
+        data.log = data.log.slice(data.log.length - MAX_ENTRIES);
+      }
+      return saveUsageData(data);
+    }).catch(function (e) {
+      if (PE.C && PE.C.DEBUG) { console.warn('[PE] recordUsage failed:', e); }
+    });
+  }
+
+  /**
+   * Check current usage against configured limits.
+   * @returns {Promise<Object>} { ok: bool, exceeded: 'daily'|'weekly'|'monthly'|null, used, limit }
+   */
+  function checkLimits() {
+    return Promise.all([loadUsageData(), getSettings()]).then(function (results) {
+      var data     = results[0];
+      var settings = results[1];
+      var limits   = (settings && settings.usageLimits) || { daily: 0, weekly: 0, monthly: 0 };
+
+      var now   = Date.now();
+      var day   = 24 * 60 * 60 * 1000;
+      var week  = 7  * day;
+      var month = 30 * day;
+
+      var startOfDay   = now - day;
+      var startOfWeek  = now - week;
+      var startOfMonth = now - month;
+
+      var dailyCount   = 0;
+      var weeklyCount  = 0;
+      var monthlyCount = 0;
+
+      for (var i = 0; i < data.log.length; i++) {
+        var ts = data.log[i].ts;
+        if (ts >= startOfMonth) { monthlyCount++; }
+        if (ts >= startOfWeek)  { weeklyCount++;  }
+        if (ts >= startOfDay)   { dailyCount++;   }
+      }
+
+      if (limits.daily  > 0 && dailyCount   >= limits.daily)   {
+        return { ok: false, exceeded: 'daily',   used: dailyCount,   limit: limits.daily   };
+      }
+      if (limits.weekly > 0 && weeklyCount  >= limits.weekly)  {
+        return { ok: false, exceeded: 'weekly',  used: weeklyCount,  limit: limits.weekly  };
+      }
+      if (limits.monthly > 0 && monthlyCount >= limits.monthly) {
+        return { ok: false, exceeded: 'monthly', used: monthlyCount, limit: limits.monthly };
+      }
+
+      return {
+        ok: true,
+        exceeded: null,
+        daily:   { used: dailyCount,   limit: limits.daily   },
+        weekly:  { used: weeklyCount,  limit: limits.weekly  },
+        monthly: { used: monthlyCount, limit: limits.monthly }
+      };
+    });
+  }
+
+  /**
+   * Compute aggregated stats from the usage log.
+   * @returns {Promise<Object>}
+   */
+  function getUsageStats() {
+    return Promise.all([loadUsageData(), getSettings()]).then(function (results) {
+      var data     = results[0];
+      var settings = results[1];
+      var log      = data.log;
+      var limits   = (settings && settings.usageLimits) || { daily: 0, weekly: 0, monthly: 0 };
+
+      var now   = Date.now();
+      var day   = 24 * 60 * 60 * 1000;
+
+      var startOfToday   = now - day;
+      var startOfWeek    = now - 7 * day;
+      var startOfMonth   = now - 30 * day;
+
+      var counts = { today: 0, week: 0, month: 0, allTime: 0 };
+      var byType = { enhance: { today: 0, week: 0, month: 0, allTime: 0 },
+                     grammar:  { today: 0, week: 0, month: 0, allTime: 0 } };
+      var totalInputChars  = 0;
+      var totalOutputChars = 0;
+      var totalLatencyMs   = 0;
+      var latencyCount     = 0;
+      var domainMap        = {};
+
+      // Last 7 days buckets (index 0 = oldest, 6 = today)
+      var dailyBuckets = [0, 0, 0, 0, 0, 0, 0];
+
+      for (var i = 0; i < log.length; i++) {
+        var entry = log[i];
+        var ts    = entry.ts;
+        var type  = entry.type || 'enhance';
+
+        counts.allTime++;
+        if (byType[type]) { byType[type].allTime++; }
+        if (ts >= startOfMonth) { counts.month++;  if (byType[type]) { byType[type].month++;  } }
+        if (ts >= startOfWeek)  { counts.week++;   if (byType[type]) { byType[type].week++;   } }
+        if (ts >= startOfToday) { counts.today++;  if (byType[type]) { byType[type].today++;  } }
+
+        totalInputChars  += (entry.inputChars  || 0);
+        totalOutputChars += (entry.outputChars || 0);
+
+        if (entry.latencyMs && entry.latencyMs > 0) {
+          totalLatencyMs += entry.latencyMs;
+          latencyCount++;
+        }
+
+        // Domain tally
+        if (entry.domain) {
+          domainMap[entry.domain] = (domainMap[entry.domain] || 0) + 1;
+        }
+
+        // Daily bucket (last 7 days): which day ago is this?
+        var ageMs   = now - ts;
+        var dayAgo  = Math.floor(ageMs / day);
+        if (dayAgo >= 0 && dayAgo < 7) {
+          dailyBuckets[6 - dayAgo]++;
+        }
+      }
+
+      // Cost estimate (input tokens ~ chars/4, output tokens ~ chars/4)
+      var inputTokens  = Math.round(totalInputChars / 4);
+      var outputTokens = Math.round(totalOutputChars / 4);
+      var totalTokens  = inputTokens + outputTokens;
+
+      // Top 5 domains
+      var domainList = [];
+      for (var d in domainMap) {
+        if (Object.prototype.hasOwnProperty.call(domainMap, d)) {
+          domainList.push({ domain: d, count: domainMap[d] });
+        }
+      }
+      domainList.sort(function (a, b) { return b.count - a.count; });
+      var topDomains = domainList.slice(0, 5);
+
+      return {
+        counts:      counts,
+        byType:      byType,
+        tokens:      { input: inputTokens, output: outputTokens, total: totalTokens },
+        avgLatencyMs: latencyCount > 0 ? Math.round(totalLatencyMs / latencyCount) : 0,
+        dailyBuckets: dailyBuckets,
+        topDomains:  topDomains,
+        limits:      limits,
+        logLength:   log.length
+      };
+    });
+  }
+
+  /**
+   * Save usage limit settings.
+   * @param {Object} limits { daily, weekly, monthly }
+   * @returns {Promise<void>}
+   */
+  function saveUsageLimits(limits) {
+    return loadUsageData().then(function (data) {
+      data.limits = {
+        daily:   parseInt(limits.daily,   10) || 0,
+        weekly:  parseInt(limits.weekly,  10) || 0,
+        monthly: parseInt(limits.monthly, 10) || 0
+      };
+      return saveUsageData(data);
+    });
+  }
+
+  /**
+   * Clear all usage log entries (keeps limits).
+   * @returns {Promise<void>}
+   */
+  function clearUsage() {
+    return loadUsageData().then(function (data) {
+      data.log = [];
+      return saveUsageData(data);
+    });
+  }
+
   // Attach to PE namespace
   PE.storage = {
     getSettings: getSettings,
@@ -322,7 +563,12 @@
     onSettingsChanged: onSettingsChanged,
     setLastResult: setLastResult,
     getLastResult: getLastResult,
-    clearLastResult: clearLastResult
+    clearLastResult: clearLastResult,
+    recordUsage: recordUsage,
+    checkLimits: checkLimits,
+    getUsageStats: getUsageStats,
+    saveUsageLimits: saveUsageLimits,
+    clearUsage: clearUsage
   };
 
 }());

@@ -4,16 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Prompt Enhancer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
 
   <!-- =====================================================================
-       HEADER
+       HEADER: Brand & Segmented Navigation
   ====================================================================== -->
   <header class="pe-header">
-    <div class="pe-logo">
-      <div class="pe-logo-icon-wrap" aria-hidden="true">
+    <div class="pe-brand">
+      <div class="pe-logo-badge" aria-hidden="true">
         <svg class="pe-logo-svg" viewBox="0 0 24 24" width="20" height="20" fill="none">
           <defs>
             <linearGradient id="wandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -28,18 +31,20 @@
           <path d="M4 20l9-9" stroke="url(#wandGrad)" stroke-width="2.2" stroke-linecap="round"/>
           <path d="M13 11l-1-1L15.5 6.5l2 2L14 12l-1-1z" fill="url(#wandGrad)" stroke="url(#wandGrad)" stroke-width="1.2" stroke-linejoin="round"/>
           <path d="M19 2l.6 1.4L21 4l-1.4.6L19 6l-.6-1.4L17 4l1.4-.6L19 2z" fill="url(#sparkleGrad)"/>
-          <path d="M7 3l.4 1.1L8.5 4.5l-1.1.4L7 6l-.4-1.1L5.5 4.5l1.1-.4L7 3z" fill="#A855F7"/>
-          <path d="M20 11l.4 1.1L21.5 12.5l-1.1.4L20 14l-.4-1.1L18.5 12.5l1.1-.4L20 11z" fill="#818CF8"/>
+          <circle cx="7" cy="4" r="1.2" fill="#A855F7"/>
+          <circle cx="20" cy="12" r="1.2" fill="#818CF8"/>
         </svg>
       </div>
-      <div class="pe-logo-text">
-        <span class="pe-logo-name">Prompt Enhancer</span>
-        <span class="pe-logo-tag">Studio</span>
+      <div class="pe-brand-text">
+        <div class="pe-brand-title">
+          <span>Prompt</span><span class="pe-brand-accent">Enhancer</span>
+        </div>
+        <span class="pe-brand-pill">AI STUDIO</span>
       </div>
     </div>
 
-    <!-- Tab navigation -->
-    <nav role="tablist" aria-label="Popup sections" class="pe-tabs">
+    <!-- Segmented Tab Navigation -->
+    <nav role="tablist" aria-label="Extension sections" class="pe-tabs">
       <button
         id="tab-enhance"
         role="tab"
@@ -67,10 +72,25 @@
         </svg>
         <span>Settings</span>
       </button>
+      <button
+        id="tab-stats"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panel-stats"
+        class="pe-tab"
+        tabindex="-1"
+      >
+        <svg class="pe-tab-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"/>
+          <line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+        <span>Stats</span>
+      </button>
     </nav>
   </header>
 
-  <!-- Welcome note shown when no API key is configured (hidden by default) -->
+  <!-- Welcome note banner when API key is not configured -->
   <div id="welcome-note" class="pe-welcome hidden" role="note" aria-live="polite">
     <div class="pe-welcome-content">
       <svg class="pe-welcome-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#A78BFA" stroke-width="2">
@@ -78,526 +98,704 @@
         <line x1="12" y1="8" x2="12" y2="12"/>
         <line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
-      <span><strong>Welcome!</strong> Add your API key in <strong>Settings</strong> to get started.</span>
+      <span class="pe-welcome-msg"><strong>Setup Required:</strong> Add your API key in <strong>Settings</strong> to start enhancing.</span>
     </div>
   </div>
 
   <!-- =====================================================================
-       PANEL — ENHANCE TAB (NO-SCROLL LAYOUT)
+       PANEL 1 — ENHANCE (HERO LIVE WORKSPACE)
   ====================================================================== -->
-  <section
+  <main
     id="panel-enhance"
     role="tabpanel"
     aria-labelledby="tab-enhance"
-    class="pe-panel pe-enhance-panel"
+    class="pe-panel pe-panel--enhance"
   >
-    <div class="pe-enhance-grid">
-      <!-- Left / Primary Control Column -->
-      <div class="pe-enhance-left">
-        <!-- Site & draft status card -->
-        <div class="pe-bento-card pe-status-card">
-          <div class="pe-status-header">
-            <span class="pe-card-title">Live Target</span>
-            <div id="context-status-row" class="pe-context-status-row hidden" aria-live="polite">
-              <span id="context-status" class="pe-context-chip"></span>
-            </div>
-          </div>
+    <div class="pe-enhance-content">
 
-          <div class="pe-status-indicators">
-            <div class="pe-status-item">
-              <span id="site-status" class="pe-badge status--muted" aria-live="polite">
-                Detecting page…
-              </span>
-            </div>
-            <div class="pe-status-item">
-              <span id="draft-status" class="pe-draft-status" aria-live="polite"></span>
-            </div>
+      <!-- Card 1: Target Page & Active Draft Status -->
+      <div class="pe-card pe-card--status">
+        <div class="pe-status-top">
+          <div class="pe-status-badge-wrap">
+            <span class="pe-status-pulse-dot"></span>
+            <span id="site-status" class="pe-badge status--muted" aria-live="polite">
+              Detecting page…
+            </span>
+          </div>
+          <div id="context-status-row" class="pe-context-status-row hidden" aria-live="polite">
+            <span id="context-status" class="pe-context-chip"></span>
           </div>
         </div>
 
-        <!-- Primary Enhance Action Card -->
-        <div class="pe-bento-card pe-action-card">
-          <button
-            id="btn-enhance"
-            class="pe-btn pe-btn--primary pe-btn--hero"
-            type="button"
-            disabled
-            aria-disabled="true"
-          >
-            <svg class="pe-btn-icon pe-svg-wand" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 20l9-9"/>
-              <path d="M13 11l-1-1L15.5 6.5l2 2L14 12l-1-1z" fill="currentColor"/>
-              <path d="M19 2l.5 1.2L20.7 3.7l-1.2.5L19 5.4l-.5-1.2L17.3 3.7l1.2-.5L19 2z" fill="currentColor"/>
-              <path d="M8 3l.4 1L9.4 4.4l-1 .4L8 5.8l-.4-1L6.6 4.4l1-.4L8 3z" fill="currentColor"/>
+        <div class="pe-status-bottom">
+          <div class="pe-status-draft-row">
+            <svg class="pe-status-draft-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
             </svg>
-            <span class="pe-btn-text">Enhance Prompt</span>
-          </button>
-
-          <!-- Shortcut hints -->
-          <div class="pe-shortcuts-bar">
-            <div id="shortcut-hint" class="pe-shortcut-pills">
-              <span class="pe-shortcut-item">Enhance <kbd>Alt+Shift+E</kbd></span>
-              <span class="pe-shortcut-dot">•</span>
-              <span class="pe-shortcut-item">Grammar <kbd>Alt+Shift+G</kbd></span>
-            </div>
-            <a
-              id="link-shortcuts"
-              href="#"
-              class="pe-link-icon"
-              title="Open keyboard shortcut settings"
-            >
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
-            </a>
+            <span id="draft-status" class="pe-draft-status" aria-live="polite">Checking prompt draft…</span>
           </div>
 
-          <!-- Active provider + model chip & last result copy -->
-          <div class="pe-meta-row">
-            <button
-              id="active-model-chip"
-              type="button"
-              class="pe-chip"
-              aria-label="Active provider and model — click to open Settings"
-              title="Click to open Settings"
-            >
-              <svg class="pe-chip-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#8B5CF6" stroke-width="2">
-                <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/>
-                <rect x="9" y="9" width="6" height="6"/>
-                <line x1="9" y1="1" x2="9" y2="4"/>
-                <line x1="15" y1="1" x2="15" y2="4"/>
-                <line x1="9" y1="20" x2="9" y2="23"/>
-                <line x1="15" y1="20" x2="15" y2="23"/>
-                <line x1="20" y1="9" x2="23" y2="9"/>
-                <line x1="20" y1="14" x2="23" y2="14"/>
-                <line x1="1" y1="9" x2="4" y2="9"/>
-                <line x1="1" y1="14" x2="4" y2="14"/>
-              </svg>
-              <span class="pe-chip-label">No model configured</span>
-            </button>
-
-            <!-- Copy last result (cyan/blue clipboard icon) -->
-            <div class="pe-last-result-row hidden">
-              <button id="btn-copy-last" type="button" class="pe-btn pe-btn--cyan pe-btn--sm">
-                <svg class="pe-svg-copy" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#06B6D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                </svg>
-                <span>Copy last result</span>
-              </button>
-            </div>
+          <div id="attachments-status-row" class="pe-attachments-status-row hidden" aria-live="polite">
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#A78BFA" stroke-width="2">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+            <span id="attachments-status" class="pe-attachments-chip"></span>
           </div>
         </div>
+      </div>
 
-        <!-- Manual Mode Accordion Trigger -->
+      <!-- Card 2: Hero Enhance Action Card -->
+      <div class="pe-card pe-card--hero">
         <button
-          id="manual-toggle"
+          id="btn-enhance"
+          class="pe-btn pe-btn--hero"
           type="button"
-          class="pe-toggle-card-btn"
-          aria-expanded="false"
-          aria-controls="manual-section"
+          disabled
+          aria-disabled="true"
         >
-          <div class="pe-toggle-left">
-            <svg class="pe-toggle-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-            <span class="pe-toggle-title">Manual Studio Mode</span>
-          </div>
-          <span class="pe-toggle-hint">Draft &amp; enhance directly</span>
-        </button>
-      </div><!-- /.pe-enhance-left -->
-
-      <!-- Right Column: Manual Studio (Collapsible or 2-column split) -->
-      <div id="manual-section" class="pe-enhance-right pe-collapsible hidden">
-        <div class="pe-bento-card pe-manual-card">
-          <div class="pe-manual-header">
-            <span class="pe-card-title">Manual Editor</span>
-            <div
-              id="manual-status"
-              class="pe-status-text"
-              role="status"
-              aria-live="polite"
-            ></div>
-          </div>
-
-          <!-- Draft Prompt Input Area -->
-          <div class="pe-manual-box">
-            <div class="pe-box-header">
-              <label for="manual-input" class="pe-box-label">Your draft prompt</label>
-              <span class="pe-muted pe-box-tip">Keep popup open while enhancing</span>
-            </div>
-            <textarea
-              id="manual-input"
-              class="pe-textarea pe-textarea--manual"
-              rows="3"
-              placeholder="Paste or type rough thoughts here…"
-              aria-label="Draft prompt for manual enhancement"
-            ></textarea>
-          </div>
-
-          <!-- Manual Action Buttons Bar -->
-          <div class="pe-manual-actions">
-            <button id="btn-manual-enhance" type="button" class="pe-btn pe-btn--primary pe-btn--sm">
-              <svg class="pe-svg-wand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <div class="pe-hero-btn-inner">
+            <div class="pe-hero-icon-wrap">
+              <svg class="pe-btn-icon pe-svg-wand" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 20l9-9"/>
                 <path d="M13 11l-1-1L15.5 6.5l2 2L14 12l-1-1z" fill="currentColor"/>
                 <path d="M19 2l.5 1.2L20.7 3.7l-1.2.5L19 5.4l-.5-1.2L17.3 3.7l1.2-.5L19 2z" fill="currentColor"/>
+                <path d="M8 3l.4 1L9.4 4.4l-1 .4L8 5.8l-.4-1L6.6 4.4l1-.4L8 3z" fill="currentColor"/>
               </svg>
-              <span>Enhance</span>
-            </button>
-            <button id="btn-manual-grammar" type="button" class="pe-btn pe-btn--rose pe-btn--sm" title="Correct grammar (Alt+Shift+G)">
-              <svg class="pe-svg-pen" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#F43F5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            </div>
+            <span class="pe-btn-text">Enhance Prompt</span>
+          </div>
+          <span class="pe-hero-shortcut"><kbd>Alt+Shift+E</kbd></span>
+        </button>
+
+        <!-- Model chip & shortcuts row -->
+        <div class="pe-meta-bar">
+          <button
+            id="active-model-chip"
+            type="button"
+            class="pe-chip"
+            aria-label="Active model — click to open Settings"
+            title="Click to open Settings · Double-click to copy model name"
+          >
+            <span class="pe-chip-dot"></span>
+            <span class="pe-chip-label">No model configured</span>
+          </button>
+
+          <a
+            id="link-shortcuts"
+            href="#"
+            class="pe-icon-btn"
+            title="Manage extension keyboard shortcuts"
+            aria-label="Open shortcut settings"
+          >
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2" ry="2"/>
+              <line x1="6" y1="8" x2="6" y2="8"/>
+              <line x1="10" y1="8" x2="10" y2="8"/>
+              <line x1="14" y1="8" x2="14" y2="8"/>
+              <line x1="18" y1="8" x2="18" y2="8"/>
+              <line x1="6" y1="12" x2="6" y2="12"/>
+              <line x1="18" y1="12" x2="18" y2="12"/>
+              <line x1="7" y1="16" x2="17" y2="16"/>
+            </svg>
+          </a>
+        </div>
+
+        <!-- Shortcuts hint pill bar -->
+        <div id="shortcut-hint" class="pe-shortcuts-bar">
+          <span class="pe-shortcut-item">Enhance <kbd>Alt+Shift+E</kbd></span>
+          <span class="pe-shortcut-dot">•</span>
+          <span class="pe-shortcut-item">Grammar <kbd>Alt+Shift+G</kbd></span>
+        </div>
+
+        <!-- Copy last result (dynamically shown) -->
+        <div class="pe-last-result-row hidden">
+          <button id="btn-copy-last" type="button" class="pe-btn pe-btn--cyan pe-btn--sm">
+            <svg class="pe-svg-copy" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            <span>Copy last result</span>
+          </button>
+        </div>
+
+        <!-- Usage Meter (daily limit indicator) -->
+        <div id="usage-meter-wrap" class="pe-usage-meter-wrap hidden" aria-live="polite">
+          <div class="pe-usage-meter-header">
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
+            <span id="usage-meter-label" class="pe-usage-meter-label">Today: 0 uses</span>
+            <span id="usage-meter-pct" class="pe-usage-meter-pct"></span>
+          </div>
+          <div class="pe-usage-meter-bar-bg">
+            <div id="usage-meter-bar" class="pe-usage-meter-bar" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Manual Studio Drawer (Scratchpad) -->
+      <div class="pe-manual-wrapper">
+        <button
+          id="manual-toggle"
+          type="button"
+          class="pe-accordion-header"
+          aria-expanded="false"
+          aria-controls="manual-section"
+        >
+          <div class="pe-accordion-left">
+            <div class="pe-accordion-icon-wrap">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 20h9"/>
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
               </svg>
-              <span>Correct Grammar</span>
-            </button>
+            </div>
+            <div class="pe-accordion-titles">
+              <span class="pe-accordion-title">Manual Studio Mode</span>
+              <span class="pe-accordion-subtitle">Draft, edit &amp; test directly in popup</span>
+            </div>
           </div>
+          <svg class="pe-accordion-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
 
-          <!-- Enhanced Output Area -->
-          <div class="pe-manual-box">
-            <div class="pe-box-header">
-              <label for="manual-output" class="pe-box-label">Enhanced prompt</label>
-              <button id="btn-manual-copy" type="button" class="pe-btn pe-btn--cyan pe-btn--xs" disabled>
-                <svg class="pe-svg-copy" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#06B6D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        <!-- Collapsible Content -->
+        <div id="manual-section" class="pe-manual-drawer hidden">
+          <div class="pe-manual-inner">
+            <div class="pe-manual-header">
+              <span class="pe-manual-title">Scratchpad Editor</span>
+              <div id="manual-status" class="pe-status-text" role="status" aria-live="polite"></div>
+            </div>
+
+            <!-- Draft Input -->
+            <div class="pe-field-box">
+              <div class="pe-field-header">
+                <label for="manual-input" class="pe-field-label">Draft prompt</label>
+                <div class="pe-field-meta">
+                  <span class="pe-muted pe-box-tip">Ctrl+Enter to enhance</span>
+                  <span id="manual-char-count" class="pe-manual-char-count" aria-live="polite"></span>
+                </div>
+              </div>
+              <textarea
+                id="manual-input"
+                class="pe-textarea pe-textarea--manual"
+                rows="3"
+                placeholder="Type or paste your rough prompt thoughts here…"
+                aria-label="Draft prompt for manual enhancement"
+              ></textarea>
+
+              <!-- File Attachments Toolbar -->
+              <div class="pe-manual-attach-bar">
+                <input
+                  type="file"
+                  id="manual-file-input"
+                  class="pe-sr-only"
+                  multiple
+                  accept=".txt,.md,.json,.csv,.tsv,.js,.ts,.py,.html,.css,.sql,.log,.xml,.yaml,.yml"
+                />
+                <button id="btn-manual-attach" type="button" class="pe-btn pe-btn--ghost pe-btn--xs" title="Attach file or code snippet for context">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                  </svg>
+                  <span>Attach File</span>
+                </button>
+                <div id="manual-attachments-list" class="pe-manual-attachments-list"></div>
+              </div>
+            </div>
+
+            <!-- Action buttons row -->
+            <div class="pe-manual-actions">
+              <button id="btn-manual-enhance" type="button" class="pe-btn pe-btn--primary pe-btn--sm">
+                <svg class="pe-svg-wand" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 20l9-9"/>
+                  <path d="M13 11l-1-1L15.5 6.5l2 2L14 12l-1-1z" fill="currentColor"/>
+                  <path d="M19 2l.5 1.2L20.7 3.7l-1.2.5L19 5.4l-.5-1.2L17.3 3.7l1.2-.5L19 2z" fill="currentColor"/>
                 </svg>
-                <span>Copy</span>
+                <span>Enhance</span>
+              </button>
+              <button id="btn-manual-grammar" type="button" class="pe-btn pe-btn--rose pe-btn--sm" title="Correct grammar (Alt+Shift+G)">
+                <svg class="pe-svg-pen" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 20h9"/>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+                <span>Correct Grammar</span>
+              </button>
+              <button id="btn-manual-clear" type="button" class="pe-btn pe-btn--ghost-danger pe-btn--sm" title="Clear input and output">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+                <span>Clear</span>
               </button>
             </div>
-            <textarea
-              id="manual-output"
-              class="pe-textarea pe-textarea--manual pe-textarea--readonly"
-              rows="4"
-              readonly
-              placeholder="Enhanced output will appear here…"
-              aria-label="Enhanced prompt output"
-            ></textarea>
+
+            <!-- Enhanced Output Area -->
+            <div class="pe-field-box">
+              <div class="pe-field-header">
+                <label for="manual-output" class="pe-field-label">Enhanced prompt</label>
+                <button id="btn-manual-copy" type="button" class="pe-btn pe-btn--cyan pe-btn--xs" disabled>
+                  <svg class="pe-svg-copy" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  <span>Copy</span>
+                </button>
+              </div>
+              <textarea
+                id="manual-output"
+                class="pe-textarea pe-textarea--manual pe-textarea--readonly"
+                rows="4"
+                readonly
+                placeholder="Enhanced prompt will appear here…"
+                aria-label="Enhanced prompt output"
+              ></textarea>
+            </div>
           </div>
         </div>
-      </div><!-- /#manual-section -->
+      </div><!-- /.pe-manual-wrapper -->
 
-    </div><!-- /.pe-enhance-grid -->
-  </section><!-- /#panel-enhance -->
+    </div><!-- /.pe-enhance-content -->
+  </main>
 
   <!-- =====================================================================
-       PANEL — SETTINGS TAB (2-COLUMN BENTO GRID + FULL-WIDTH FOOTER)
+       PANEL 2 — SETTINGS (BEAUTIFULLY ORGANIZED PREFERENCES)
   ====================================================================== -->
   <section
     id="panel-settings"
     role="tabpanel"
     aria-labelledby="tab-settings"
-    class="pe-panel pe-settings-panel hidden"
+    class="pe-panel pe-panel--settings hidden"
   >
-    <!-- 2-Column Bento Grid Container (No Scroll) -->
-    <div class="pe-settings-grid">
+    <div class="pe-settings-scroll">
 
-      <!-- ==============================================================
-           LEFT COLUMN: Provider & Connection Credentials
-      ============================================================== -->
-      <div class="pe-settings-col">
-        <div class="pe-bento-card">
-          <div class="pe-card-header">
-            <span class="pe-card-title">Provider &amp; Connection</span>
+      <!-- Group 1: AI Provider & Credentials -->
+      <div class="pe-settings-card">
+        <div class="pe-card-header">
+          <div class="pe-card-title-wrap">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#8B5CF6" stroke-width="2">
+              <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/>
+              <rect x="9" y="9" width="6" height="6"/>
+              <line x1="9" y1="1" x2="9" y2="4"/>
+              <line x1="15" y1="1" x2="15" y2="4"/>
+              <line x1="9" y1="20" x2="9" y2="23"/>
+              <line x1="15" y1="20" x2="15" y2="23"/>
+              <line x1="20" y1="9" x2="23" y2="9"/>
+              <line x1="20" y1="14" x2="23" y2="14"/>
+              <line x1="1" y1="9" x2="4" y2="9"/>
+              <line x1="1" y1="14" x2="4" y2="14"/>
+            </svg>
+            <span class="pe-card-title">AI Provider &amp; Model</span>
           </div>
+        </div>
 
-          <!-- Provider Selection -->
-          <div class="pe-form-row">
-            <label for="select-provider" class="pe-label">AI Provider</label>
-            <div class="pe-select-wrapper">
-              <select id="select-provider" class="pe-select" aria-label="Select AI provider">
-                <option value="openrouter">OpenRouter</option>
-                <option value="opencode">OpenCode (Zen)</option>
-                <option value="custom">Custom (OpenAI-compatible)</option>
-              </select>
-              <svg class="pe-select-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="6 9 12 15 18 9"/>
+        <!-- Provider Selection -->
+        <div class="pe-form-row">
+          <label for="select-provider" class="pe-label">AI Provider</label>
+          <div class="pe-select-wrapper">
+            <select id="select-provider" class="pe-select" aria-label="Select AI provider">
+              <option value="openrouter">OpenRouter (Recommended — 200+ Models)</option>
+              <option value="opencode">OpenCode (Zen)</option>
+              <option value="custom">Custom (OpenAI-compatible / Local)</option>
+            </select>
+            <svg class="pe-select-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Base URL (Custom Provider only) -->
+        <div id="row-base-url" class="pe-form-row hidden">
+          <label for="input-base-url" class="pe-label">Base URL</label>
+          <input
+            id="input-base-url"
+            type="url"
+            class="pe-input"
+            placeholder="https://api.example.com/v1"
+            autocomplete="off"
+            spellcheck="false"
+            aria-describedby="base-url-hint"
+          />
+          <p id="base-url-hint" class="pe-field-hint pe-muted">
+            Must start with <code>https://</code> or <code>http://localhost</code>.
+          </p>
+        </div>
+
+        <!-- API Key with inline Get Key link and Eye Toggle -->
+        <div class="pe-form-row">
+          <div class="pe-label-row">
+            <label for="input-api-key" class="pe-label">API Key</label>
+            <a
+              id="link-get-key"
+              href="#"
+              class="pe-link pe-inline-link"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span>Get API key</span>
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
               </svg>
-            </div>
+            </a>
           </div>
-
-          <!-- Base URL (Custom Provider only) -->
-          <div id="row-base-url" class="pe-form-row hidden">
-            <label for="input-base-url" class="pe-label">Base URL</label>
+          <div class="pe-input-group">
             <input
-              id="input-base-url"
-              type="url"
-              class="pe-input"
-              placeholder="https://api.example.com/v1"
+              id="input-api-key"
+              type="password"
+              class="pe-input pe-input--key"
+              placeholder="Paste your API key here"
               autocomplete="off"
               spellcheck="false"
-              aria-describedby="base-url-hint"
+              aria-describedby="saved-key-hint"
             />
-            <p id="base-url-hint" class="pe-field-hint pe-muted">
-              Must start with <code>https://</code> or <code>http://localhost</code>.
-            </p>
-          </div>
-
-          <!-- API Key with inline Get Key link and Eye Toggle -->
-          <div class="pe-form-row">
-            <div class="pe-label-row">
-              <label for="input-api-key" class="pe-label">API Key</label>
-              <a
-                id="link-get-key"
-                href="#"
-                class="pe-link pe-inline-link"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <span>Get API key</span>
-                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                  <polyline points="15 3 21 3 21 9"/>
-                  <line x1="10" y1="14" x2="21" y2="3"/>
-                </svg>
-              </a>
-            </div>
-            <div class="pe-input-group">
-              <input
-                id="input-api-key"
-                type="password"
-                class="pe-input pe-input--key"
-                placeholder="Paste your API key here"
-                autocomplete="off"
-                spellcheck="false"
-                aria-describedby="saved-key-hint"
-              />
-              <button
-                id="btn-toggle-key"
-                type="button"
-                class="pe-btn-icon"
-                aria-label="Show or hide API key"
-                title="Show / hide key"
-              >
-                <svg class="pe-svg-eye" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </button>
-            </div>
-            <p id="saved-key-hint" class="pe-field-hint pe-muted"></p>
-          </div>
-
-          <!-- Model Selection & Presets -->
-          <div class="pe-form-row">
-            <label for="input-model" class="pe-label">Model Identifier</label>
-            <div class="pe-input-group">
-              <input
-                id="input-model"
-                type="text"
-                class="pe-input"
-                list="datalist-models"
-                placeholder="e.g. openai/gpt-4o-mini"
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <button id="btn-load-models" type="button" class="pe-btn-icon" title="Load models catalog">
-                <svg class="pe-svg-reload" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-                </svg>
-              </button>
-            </div>
-            <datalist id="datalist-models"></datalist>
-            <div id="models-status" class="pe-status-text pe-muted" aria-live="polite"></div>
-          </div>
-
-          <!-- Test Connection Action & Status -->
-          <div class="pe-test-block">
-            <button id="btn-test" type="button" class="pe-btn pe-btn--amber pe-btn--sm">
-              <svg class="pe-svg-bolt" viewBox="0 0 24 24" width="14" height="14" fill="#F59E0B" stroke="#F59E0B" stroke-width="1.2">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-              </svg>
-              <span>Test Connection</span>
-            </button>
-            <div
-              id="test-status"
-              class="pe-status-text pe-test-status"
-              role="status"
-              aria-live="polite"
-            ></div>
-          </div>
-          <details id="test-details" class="pe-details hidden">
-            <summary class="pe-details-summary">Details</summary>
-            <pre class="pe-details-body"></pre>
-          </details>
-
-        </div>
-      </div><!-- /.pe-settings-col (Left) -->
-
-      <!-- ==============================================================
-           RIGHT COLUMN: Behavior, Toggles, Rules & Advanced
-      ============================================================== -->
-      <div class="pe-settings-col">
-        <div class="pe-bento-card">
-          <div class="pe-card-header">
-            <span class="pe-card-title">Behavior &amp; Parameters</span>
-          </div>
-
-          <!-- Enhancement Style Dropdown -->
-          <div class="pe-form-row">
-            <label for="select-style" class="pe-label">Enhancement Style</label>
-            <div class="pe-select-wrapper">
-              <select id="select-style" class="pe-select">
-                <option value="human">Human-like (Natural &amp; Direct)</option>
-                <option value="balanced">Role, Context &amp; Steps</option>
-                <option value="concise">Concise (Task &amp; Bullets only)</option>
-                <option value="detailed">Detailed (Full structure &amp; Edge cases)</option>
-              </select>
-              <svg class="pe-select-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </div>
-          </div>
-
-          <!-- Custom Toggle Switches -->
-          <div class="pe-toggles-group">
-            <!-- Include chat context switch -->
-            <label for="checkbox-include-context" class="pe-switch-item">
-              <div class="pe-switch-label">
-                <span class="pe-switch-title">Include chat context</span>
-                <span class="pe-switch-hint">Read recent chat messages for relevant background</span>
-              </div>
-              <div class="pe-switch-control">
-                <input
-                  id="checkbox-include-context"
-                  type="checkbox"
-                  class="pe-switch-native"
-                  checked
-                />
-                <span class="pe-switch-slider"></span>
-              </div>
-            </label>
-
-            <!-- Always include role switch (Role, Context & Steps mode) -->
-            <label for="checkbox-always-include-role" class="pe-switch-item">
-              <div class="pe-switch-label">
-                <span class="pe-switch-title">Always include role</span>
-                <span class="pe-switch-hint">Re-state AI persona in every prompt even in ongoing chats</span>
-              </div>
-              <div class="pe-switch-control">
-                <input
-                  id="checkbox-always-include-role"
-                  type="checkbox"
-                  class="pe-switch-native"
-                />
-                <span class="pe-switch-slider"></span>
-              </div>
-            </label>
-
-            <!-- Include Markdown symbols switch -->
-            <label for="checkbox-markdown-symbols" class="pe-switch-item">
-              <div class="pe-switch-label">
-                <span class="pe-switch-title">Include Markdown symbols</span>
-                <span class="pe-switch-hint">Add formatting tags (bold/headings) to enhanced prompts</span>
-              </div>
-              <div class="pe-switch-control">
-                <input
-                  id="checkbox-markdown-symbols"
-                  type="checkbox"
-                  class="pe-switch-native"
-                />
-                <span class="pe-switch-slider"></span>
-              </div>
-            </label>
-          </div>
-
-          <!-- Custom System Rules Textarea -->
-          <div class="pe-form-row pe-form-row--compact">
-            <div class="pe-label-row">
-              <label for="input-rules" class="pe-label">Custom Rules</label>
-              <span id="rules-counter" class="pe-char-counter pe-muted" aria-live="polite">0 / 4000</span>
-            </div>
-            <textarea
-              id="input-rules"
-              class="pe-textarea pe-textarea--rules"
-              rows="2"
-              maxlength="4000"
-              placeholder="Optional: custom instructions appended to prompt generator…"
-              aria-describedby="rules-counter"
-            ></textarea>
-          </div>
-
-          <!-- Advanced Parameters (Temperature & Max Tokens Always Visible Side-by-Side) -->
-          <div class="pe-advanced-wrapper">
-            <!-- Hidden toggle button retained for strict JS compatibility -->
             <button
-              id="advanced-toggle"
+              id="btn-toggle-key"
               type="button"
-              class="pe-toggle-btn pe-sr-only"
-              aria-expanded="true"
-              aria-controls="advanced-section"
-            ></button>
-
-            <div id="advanced-section" class="pe-collapsible pe-advanced-grid">
-              <!-- Temperature Slider -->
-              <div class="pe-param-box">
-                <div class="pe-param-header">
-                  <label for="input-temperature" class="pe-label">Temperature</label>
-                  <span id="temperature-value" class="pe-badge status--muted" aria-live="polite">0.3</span>
-                </div>
-                <input
-                  id="input-temperature"
-                  type="range"
-                  class="pe-range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value="0.3"
-                  aria-valuemin="0"
-                  aria-valuemax="1"
-                  aria-valuenow="0.3"
-                  aria-valuetext="0.3"
-                />
-                <div class="pe-range-labels" aria-hidden="true">
-                  <span>Precise</span>
-                  <span>Creative</span>
-                </div>
-              </div>
-
-              <!-- Max Output Tokens -->
-              <div class="pe-param-box">
-                <div class="pe-param-header">
-                  <label for="input-max-tokens" class="pe-label">Max Tokens</label>
-                  <span class="pe-param-hint" id="max-tokens-hint">256–4000</span>
-                </div>
-                <input
-                  id="input-max-tokens"
-                  type="number"
-                  class="pe-input pe-input--number"
-                  min="256"
-                  max="4000"
-                  step="1"
-                  value="1500"
-                  aria-describedby="max-tokens-hint"
-                />
-              </div>
-            </div><!-- /#advanced-section -->
-          </div><!-- /.pe-advanced-wrapper -->
-
+              class="pe-input-addon-btn"
+              aria-label="Show or hide API key"
+              title="Show / hide key"
+            >
+              <svg class="pe-svg-eye" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+          <p id="saved-key-hint" class="pe-field-hint pe-muted"></p>
         </div>
-      </div><!-- /.pe-settings-col (Right) -->
 
-    </div><!-- /.pe-settings-grid -->
+        <!-- Model Selection & Catalog Loader -->
+        <div class="pe-form-row">
+          <div class="pe-label-row">
+            <label for="input-model" class="pe-label">Model Identifier</label>
+            <span id="models-status" class="pe-status-text pe-muted" aria-live="polite"></span>
+          </div>
+          <div class="pe-input-group">
+            <input
+              id="input-model"
+              type="text"
+              class="pe-input"
+              list="datalist-models"
+              placeholder="e.g. openai/gpt-4o-mini"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button id="btn-load-models" type="button" class="pe-input-addon-btn" title="Refresh available models catalog">
+              <svg class="pe-svg-reload" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+              </svg>
+            </button>
+          </div>
+          <datalist id="datalist-models"></datalist>
+
+          <!-- Quick Model Recommendation Pills -->
+          <div class="pe-quick-models" aria-label="Suggested models">
+            <span class="pe-quick-models-title">Quick Picks:</span>
+            <button type="button" class="pe-model-suggestion" data-model="openai/gpt-4o-mini">GPT-4o Mini</button>
+            <button type="button" class="pe-model-suggestion" data-model="anthropic/claude-3.5-haiku">Claude Haiku</button>
+            <button type="button" class="pe-model-suggestion" data-model="google/gemini-flash-1.5">Gemini Flash</button>
+            <button type="button" class="pe-model-suggestion" data-model="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 [Free]</button>
+          </div>
+        </div>
+
+        <!-- Test Connection Bar -->
+        <div class="pe-test-block">
+          <button id="btn-test" type="button" class="pe-btn pe-btn--amber pe-btn--sm">
+            <svg class="pe-svg-bolt" viewBox="0 0 24 24" width="13" height="13" fill="#F59E0B" stroke="#F59E0B" stroke-width="1.2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            <span>Test Connection</span>
+          </button>
+          <div id="test-status" class="pe-status-text pe-test-status" role="status" aria-live="polite"></div>
+        </div>
+
+        <details id="test-details" class="pe-details hidden">
+          <summary class="pe-details-summary">Diagnostic details</summary>
+          <pre class="pe-details-body"></pre>
+        </details>
+      </div><!-- /.pe-settings-card 1 -->
+
+      <!-- Group 2: Enhancement Style & AI Behaviors -->
+      <div class="pe-settings-card">
+        <div class="pe-card-header">
+          <div class="pe-card-title-wrap">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#6366F1" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <span class="pe-card-title">Enhancement Style &amp; Rules</span>
+          </div>
+        </div>
+
+        <!-- Style Dropdown -->
+        <div class="pe-form-row">
+          <label for="select-style" class="pe-label">Prompt Structure</label>
+          <div class="pe-select-wrapper">
+            <select id="select-style" class="pe-select">
+              <option value="human">Human-like (Natural, direct &amp; conversational)</option>
+              <option value="balanced">Role, Context &amp; Steps (Engineered best-practice)</option>
+              <option value="concise">Concise (Task, goal &amp; constraints only)</option>
+              <option value="detailed">Detailed (Comprehensive architecture &amp; edge cases)</option>
+            </select>
+            <svg class="pe-select-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Interactive Switches Group -->
+        <div class="pe-toggles-group">
+          <!-- Include chat context switch -->
+          <label for="checkbox-include-context" class="pe-switch-item">
+            <div class="pe-switch-label">
+              <span class="pe-switch-title">Read chat context</span>
+              <span class="pe-switch-hint">Analyze conversation history for accurate reference</span>
+            </div>
+            <div class="pe-switch-control">
+              <input
+                id="checkbox-include-context"
+                type="checkbox"
+                class="pe-switch-native"
+                checked
+              />
+              <span class="pe-switch-slider"></span>
+            </div>
+          </label>
+
+          <!-- Always include role switch -->
+          <label for="checkbox-always-include-role" class="pe-switch-item">
+            <div class="pe-switch-label">
+              <span class="pe-switch-title">Always include role persona</span>
+              <span class="pe-switch-hint">Explicitly re-state AI role in ongoing chats</span>
+            </div>
+            <div class="pe-switch-control">
+              <input
+                id="checkbox-always-include-role"
+                type="checkbox"
+                class="pe-switch-native"
+              />
+              <span class="pe-switch-slider"></span>
+            </div>
+          </label>
+
+          <!-- Include Markdown symbols switch -->
+          <label for="checkbox-markdown-symbols" class="pe-switch-item">
+            <div class="pe-switch-label">
+              <span class="pe-switch-title">Markdown formatting</span>
+              <span class="pe-switch-hint">Use bold tags and section headings in output</span>
+            </div>
+            <div class="pe-switch-control">
+              <input
+                id="checkbox-markdown-symbols"
+                type="checkbox"
+                class="pe-switch-native"
+              />
+              <span class="pe-switch-slider"></span>
+            </div>
+          </label>
+        </div>
+
+        <!-- Custom System Rules Textarea -->
+        <div class="pe-form-row">
+          <div class="pe-label-row">
+            <label for="input-rules" class="pe-label">Custom Instructions</label>
+            <span id="rules-counter" class="pe-char-counter pe-muted" aria-live="polite">0 / 4000</span>
+          </div>
+          <textarea
+            id="input-rules"
+            class="pe-textarea pe-textarea--rules"
+            rows="2"
+            maxlength="4000"
+            placeholder="e.g. Always respond in Spanish, focus on TypeScript and functional programming…"
+            aria-describedby="rules-counter"
+          ></textarea>
+        </div>
+      </div><!-- /.pe-settings-card 2 -->
+
+      <!-- Group 3: Model Parameters & Generation Tuning -->
+      <div class="pe-settings-card">
+        <div class="pe-card-header">
+          <div class="pe-card-title-wrap">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#06B6D4" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="16" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            <span class="pe-card-title">Generation Parameters</span>
+          </div>
+        </div>
+
+        <div class="pe-advanced-wrapper">
+          <!-- Hidden toggle button retained for strict JS compatibility -->
+          <button
+            id="advanced-toggle"
+            type="button"
+            class="pe-toggle-btn pe-sr-only"
+            aria-expanded="true"
+            aria-controls="advanced-section"
+          ></button>
+
+          <div id="advanced-section" class="pe-advanced-grid">
+            <!-- Temperature Slider -->
+            <div class="pe-param-box">
+              <div class="pe-param-header">
+                <label for="input-temperature" class="pe-label">Creativity (Temperature)</label>
+                <span id="temperature-value" class="pe-badge status--muted" aria-live="polite">0.3</span>
+              </div>
+              <input
+                id="input-temperature"
+                type="range"
+                class="pe-range"
+                min="0"
+                max="1"
+                step="0.1"
+                value="0.3"
+                aria-valuemin="0"
+                aria-valuemax="1"
+                aria-valuenow="0.3"
+                aria-valuetext="0.3"
+              />
+              <div class="pe-range-labels" aria-hidden="true">
+                <span>0.0 Precise</span>
+                <span>0.5 Balanced</span>
+                <span>1.0 Creative</span>
+              </div>
+            </div>
+
+            <!-- Max Output Tokens -->
+            <div class="pe-param-box">
+              <div class="pe-param-header">
+                <label for="input-max-tokens" class="pe-label">Max Tokens</label>
+                <span class="pe-param-hint" id="max-tokens-hint">256–4000</span>
+              </div>
+              <input
+                id="input-max-tokens"
+                type="number"
+                class="pe-input pe-input--number"
+                min="256"
+                max="4000"
+                step="50"
+                value="1500"
+                aria-describedby="max-tokens-hint"
+              />
+            </div>
+          </div>
+        </div>
+      </div><!-- /.pe-settings-card 3 -->
+
+      <!-- Group 4: Usage Limits -->
+      <div class="pe-settings-card">
+        <div class="pe-card-header">
+          <div class="pe-card-title-wrap">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#F59E0B" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span class="pe-card-title">Usage Limits</span>
+          </div>
+          <span class="pe-card-subtitle">Set 0 for unlimited. Limits reset based on rolling time window.</span>
+        </div>
+
+        <div class="pe-limits-grid">
+          <div class="pe-limit-row">
+            <label for="limit-daily" class="pe-label">Daily limit</label>
+            <div class="pe-limit-input-wrap">
+              <input
+                id="limit-daily"
+                type="number"
+                class="pe-input pe-input--number pe-input--limit"
+                min="0"
+                max="9999"
+                step="1"
+                value="0"
+                placeholder="0"
+                aria-describedby="limit-daily-hint"
+              />
+              <span class="pe-limit-unit">uses/day</span>
+            </div>
+          </div>
+          <div class="pe-limit-row">
+            <label for="limit-weekly" class="pe-label">Weekly limit</label>
+            <div class="pe-limit-input-wrap">
+              <input
+                id="limit-weekly"
+                type="number"
+                class="pe-input pe-input--number pe-input--limit"
+                min="0"
+                max="9999"
+                step="1"
+                value="0"
+                placeholder="0"
+                aria-describedby="limit-weekly-hint"
+              />
+              <span class="pe-limit-unit">uses/week</span>
+            </div>
+          </div>
+          <div class="pe-limit-row">
+            <label for="limit-monthly" class="pe-label">Monthly limit</label>
+            <div class="pe-limit-input-wrap">
+              <input
+                id="limit-monthly"
+                type="number"
+                class="pe-input pe-input--number pe-input--limit"
+                min="0"
+                max="9999"
+                step="1"
+                value="0"
+                placeholder="0"
+              />
+              <span class="pe-limit-unit">uses/month</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pe-limits-actions">
+          <button id="btn-save-limits" type="button" class="pe-btn pe-btn--primary pe-btn--sm">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Save Limits
+          </button>
+          <button id="btn-clear-usage" type="button" class="pe-btn pe-btn--ghost-danger pe-btn--sm" title="Permanently clear all recorded usage history">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6"/>
+              <path d="M14 11v6"/>
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+            Clear History
+          </button>
+          <span id="limits-save-status" class="pe-status-text" role="status" aria-live="polite"></span>
+        </div>
+      </div><!-- /.pe-settings-card 4 -->
+
+    </div><!-- /.pe-settings-scroll -->
 
     <!-- ==============================================================
-         FOOTER BAR: Full-Width Bottom Bar
+         STICKY FOOTER BAR
     ============================================================== -->
     <footer class="pe-footer-bar">
-      <!-- Left: Security Storage Badge with Emerald Shield-Lock SVG -->
+      <!-- Left: Security Storage Badge -->
       <div class="pe-footer-security">
-        <svg class="pe-svg-shield" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="pe-svg-shield" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           <circle cx="12" cy="11" r="1.5" fill="#10B981"/>
           <path d="M12 12.5v3"/>
         </svg>
         <span class="pe-security-text">
-          API key stored locally on this device, never synced.
+          Encrypted locally · Never synced
         </span>
       </div>
 
-      <!-- Right: Unsaved Indicator, Status, Reset & Save Actions -->
+      <!-- Right: Unsaved Badge, Status, Reset & Save -->
       <div class="pe-footer-actions">
         <span id="unsaved-indicator" class="pe-unsaved-badge hidden" aria-live="polite">
           <span class="pe-unsaved-dot"></span>
@@ -605,8 +803,8 @@
         </span>
         <div id="save-status" class="pe-status-text pe-save-status" role="status" aria-live="polite"></div>
 
-        <button id="btn-reset" type="button" class="pe-btn pe-btn--ghost pe-btn--sm">
-          Reset defaults
+        <button id="btn-reset" type="button" class="pe-btn pe-btn--ghost pe-btn--sm" title="Reset all settings to defaults">
+          Reset
         </button>
         <button id="btn-save" type="button" class="pe-btn pe-btn--primary pe-btn--sm">
           Save Settings
@@ -618,6 +816,157 @@
     </footer>
 
   </section><!-- /#panel-settings -->
+
+  <!-- =====================================================================
+       PANEL 3 — STATS (USAGE ANALYTICS DASHBOARD)
+  ====================================================================== -->
+  <section
+    id="panel-stats"
+    role="tabpanel"
+    aria-labelledby="tab-stats"
+    class="pe-panel pe-panel--stats hidden"
+  >
+    <div class="pe-stats-scroll">
+
+      <!-- Limit Warning Banner (shown when limit is close or reached) -->
+      <div id="stats-limit-banner" class="pe-limit-banner hidden" role="alert" aria-live="assertive">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span id="stats-limit-banner-text">Daily limit reached</span>
+      </div>
+
+      <!-- Counter Cards Row -->
+      <div class="pe-stats-counters">
+        <div class="pe-stat-card">
+          <span class="pe-stat-period">Today</span>
+          <span id="stat-today" class="pe-stat-num">—</span>
+          <span class="pe-stat-unit">calls</span>
+        </div>
+        <div class="pe-stat-card">
+          <span class="pe-stat-period">Week</span>
+          <span id="stat-week" class="pe-stat-num">—</span>
+          <span class="pe-stat-unit">calls</span>
+        </div>
+        <div class="pe-stat-card">
+          <span class="pe-stat-period">Month</span>
+          <span id="stat-month" class="pe-stat-num">—</span>
+          <span class="pe-stat-unit">calls</span>
+        </div>
+        <div class="pe-stat-card">
+          <span class="pe-stat-period">All-time</span>
+          <span id="stat-alltime" class="pe-stat-num">—</span>
+          <span class="pe-stat-unit">calls</span>
+        </div>
+      </div>
+
+      <!-- Breakdown by type -->
+      <div class="pe-stats-card">
+        <div class="pe-stats-card-header">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#A78BFA" stroke-width="2">
+            <path d="M4 20l9-9"/><path d="M13 11l-1-1L15.5 6.5l2 2L14 12l-1-1z" fill="#A78BFA"/>
+          </svg>
+          <span>By Type</span>
+        </div>
+        <div class="pe-type-breakdown">
+          <div class="pe-type-row">
+            <span class="pe-type-dot pe-type-dot--enhance"></span>
+            <span class="pe-type-label">Enhance</span>
+            <span id="stat-enhance-today" class="pe-type-val">0</span>
+            <span class="pe-type-sep">/</span>
+            <span id="stat-enhance-alltime" class="pe-type-val pe-type-val--muted">0</span>
+            <span class="pe-type-unit">today / all-time</span>
+          </div>
+          <div class="pe-type-row">
+            <span class="pe-type-dot pe-type-dot--grammar"></span>
+            <span class="pe-type-label">Grammar</span>
+            <span id="stat-grammar-today" class="pe-type-val">0</span>
+            <span class="pe-type-sep">/</span>
+            <span id="stat-grammar-alltime" class="pe-type-val pe-type-val--muted">0</span>
+            <span class="pe-type-unit">today / all-time</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7-Day Activity Chart -->
+      <div class="pe-stats-card">
+        <div class="pe-stats-card-header">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#6366F1" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          <span>Last 7 Days</span>
+        </div>
+        <div class="pe-chart-wrap">
+          <div id="stats-bar-chart" class="pe-bar-chart" aria-label="Usage over last 7 days"></div>
+          <div id="stats-day-labels" class="pe-bar-chart-labels"></div>
+        </div>
+      </div>
+
+      <!-- Token & Cost Estimate -->
+      <div class="pe-stats-card">
+        <div class="pe-stats-card-header">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#10B981" stroke-width="2">
+            <line x1="12" y1="1" x2="12" y2="23"/>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+          <span>Token &amp; Cost Estimate</span>
+          <span class="pe-approx-badge">~approx</span>
+        </div>
+        <div class="pe-token-grid">
+          <div class="pe-token-row">
+            <span class="pe-token-label">Input tokens (all-time)</span>
+            <span id="stat-tokens-in" class="pe-token-val">—</span>
+          </div>
+          <div class="pe-token-row">
+            <span class="pe-token-label">Output tokens (all-time)</span>
+            <span id="stat-tokens-out" class="pe-token-val">—</span>
+          </div>
+          <div class="pe-token-row pe-token-row--total">
+            <span class="pe-token-label">Total tokens</span>
+            <span id="stat-tokens-total" class="pe-token-val">—</span>
+          </div>
+          <div class="pe-token-row pe-token-row--cost">
+            <span class="pe-token-label">Est. cost</span>
+            <span id="stat-cost" class="pe-token-val pe-cost-val">—</span>
+          </div>
+          <div class="pe-token-row">
+            <span class="pe-token-label">Avg latency</span>
+            <span id="stat-latency" class="pe-token-val">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Sites -->
+      <div class="pe-stats-card" id="top-sites-card">
+        <div class="pe-stats-card-header">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#F472B6" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+          <span>Top Sites</span>
+        </div>
+        <div id="stats-top-sites" class="pe-top-sites-list">
+          <span class="pe-stats-empty">No data yet</span>
+        </div>
+      </div>
+
+      <!-- Log Info Footer -->
+      <div class="pe-stats-footer">
+        <span id="stats-log-info" class="pe-stats-footer-text">Tracking up to 500 recent calls · Data stored locally</span>
+        <button id="btn-goto-limits" type="button" class="pe-btn pe-btn--ghost pe-btn--xs">
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          Set Limits
+        </button>
+      </div>
+
+    </div><!-- /.pe-stats-scroll -->
+  </section><!-- /#panel-stats -->
 
   <!-- =====================================================================
        SCRIPTS

@@ -40,7 +40,9 @@
     "https://claude.ai/*",
     "https://gemini.google.com/*",
     "https://openrouter.ai/*",
-    "https://opencode.ai/*"
+    "https://opencode.ai/*",
+    "https://www.perplexity.ai/*",
+    "https://chat.deepseek.com/*"
   ],
 
   "optional_host_permissions": [
@@ -55,13 +57,16 @@
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
         "https://claude.ai/*",
-        "https://gemini.google.com/*"
+        "https://gemini.google.com/*",
+        "https://www.perplexity.ai/*",
+        "https://chat.deepseek.com/*"
       ],
       "js": [
         "src/content/content-constants.js",
         "src/content/site-adapters.js",
         "src/content/dom-utils.js",
         "src/content/ui-overlay.js",
+        "src/content/stats-overlay.js",
         "src/content/content.js"
       ],
       "run_at": "document_idle",

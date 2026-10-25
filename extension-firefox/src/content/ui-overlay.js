@@ -73,6 +73,14 @@
     '    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5), 0 0 16px rgba(139, 92, 246, 0.18);',
     '  }',
     '}',
+    '@media (max-width: 540px) {',
+    '  .pe-toast-container {',
+    '    max-width: calc(100vw - 32px);',
+    '    font-size: 12px;',
+    '    padding: 5px 10px 5px 10px;',
+    '    gap: 8px;',
+    '  }',
+    '}',
     '.pe-toast-header {',
     '  display: flex;',
     '  align-items: center;',
@@ -190,19 +198,21 @@
     '  z-index: 2147483646;',
     '  box-sizing: border-box;',
     '  overflow: hidden;',
+    '  contain: paint;',
+    '  isolation: isolate;',
     '  display: flex;',
     '  align-items: center;',
     '  justify-content: center;',
     '  pointer-events: auto;',
     '  opacity: 0;',
-    '  transform: scale(0.985);',
-    '  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);',
-    '  backdrop-filter: blur(10px);',
-    '  -webkit-backdrop-filter: blur(10px);',
+    '  transition: opacity 0.20s cubic-bezier(0.16, 1, 0.3, 1);',
+    '  backdrop-filter: blur(8px);',
+    '  -webkit-backdrop-filter: blur(8px);',
+    '  clip-path: inset(0 round 26px);',
+    '  -webkit-clip-path: inset(0 round 26px);',
     '}',
     '.pe-halftone-overlay.pe-visible {',
     '  opacity: 1;',
-    '  transform: scale(1);',
     '}',
     '.pe-halftone-canvas {',
     '  position: absolute;',
@@ -212,6 +222,7 @@
     '  height: 100%;',
     '  pointer-events: none;',
     '  display: block;',
+    '  border-radius: inherit;',
     '}',
     '.pe-halftone-badge {',
     '  position: relative;',
@@ -481,6 +492,8 @@
 
     containerElement = document.createElement('div');
     containerElement.className = 'pe-toast-container';
+    containerElement.setAttribute('role', 'status');
+    containerElement.setAttribute('aria-live', 'polite');
     shadowRoot.appendChild(containerElement);
 
     return shadowRoot;
@@ -606,7 +619,7 @@
   // ---------------------------------------------------------------------------
   // Halftone Dot Grid Animation Engine
   // ---------------------------------------------------------------------------
-  function startHalftoneAnimation(canvas, theme) {
+  function startHalftoneAnimation(canvas, theme, onFrame) {
     if (!canvas || typeof canvas.getContext !== 'function') {
       return function () {};
     }
@@ -617,6 +630,7 @@
 
     var animId = null;
     var time = 0;
+    var frameCount = 0;
     var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
 
     var pR = theme.primaryRgb[0];
@@ -628,6 +642,10 @@
     var sB = theme.secondaryRgb[2];
 
     function draw() {
+      frameCount++;
+      if (typeof onFrame === 'function' && (frameCount % 6 === 0)) {
+        try { onFrame(); } catch (e) {}
+      }
       var w = canvas.clientWidth || canvas.offsetWidth || 300;
       var h = canvas.clientHeight || canvas.offsetHeight || 80;
       if (w <= 0 || h <= 0) {
@@ -756,83 +774,226 @@
   // ---------------------------------------------------------------------------
   // Outer Chat Input Container Resolution
   // Finds the outer pill / card bar (e.g. in ChatGPT, Claude, Gemini) so the
-  // animated halftone overlay fills the full rounded bar from edge to edge.
-  // ---------------------------------------------------------------------------
-  // Outer Chat Input Container Resolution
-  // Finds the outer pill / card bar (e.g. in ChatGPT, Claude, Gemini) so the
-  // animated halftone overlay fills the full rounded bar from edge to edge.
+  // animated halftone overlay fills the full rounded bar from edge to edge,
+  // strictly excluding disclaimer footers and chat history containers.
   // ---------------------------------------------------------------------------
   function findOuterInputContainer(targetEl) {
     if (!targetEl || !targetEl.parentElement) return targetEl;
 
-    // 1. Site-specific fast path for known AI platforms
+    // If PE.dom has the shared resolver, prefer it
+    if (typeof globalThis !== 'undefined' && globalThis.PE && globalThis.PE.dom && typeof globalThis.PE.dom.findOuterInputContainer === 'function') {
+      try {
+        var resolved = globalThis.PE.dom.findOuterInputContainer(targetEl);
+        if (resolved) return resolved;
+      } catch (e) {}
+    }
+
     try {
       var host = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname : '';
+      var winW = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 1920;
+      var winH = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 1080;
+      var targetRect = targetEl.getBoundingClientRect();
+      var maxAllowedH = Math.min(320, (targetRect.height > 0 ? targetRect.height + 90 : 220));
 
-      // Gemini: find the outer card enclosing rich-textarea AND the bottom toolbar (+, Argon, mic, send)
+      function hasDisclaimer(el) {
+        if (!el) return false;
+        var txt = (el.textContent || '').toLowerCase();
+        if (
+          txt.includes('can make mistakes') ||
+          txt.includes('double-check responses') ||
+          txt.includes('display inaccurate info') ||
+          txt.includes('verify important info') ||
+          txt.includes('check important info')
+        ) {
+          return true;
+        }
+        if (el.querySelector && el.querySelector('[class*="disclaimer"], [class*="footer"], .text-xs')) {
+          var dChild = el.querySelector('[class*="disclaimer"], [class*="footer"], .text-xs');
+          var dTxt = (dChild.textContent || '').toLowerCase();
+          if (dTxt.includes('mistake') || dTxt.includes('inaccurate') || dTxt.includes('verify') || dTxt.includes('claude is ai') || dTxt.includes('chatgpt can')) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function isValidCard(el, maxH, maxW) {
+        if (!el || typeof el.getBoundingClientRect !== 'function') return false;
+        var r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) return false;
+        if (r.height > (maxH || maxAllowedH)) return false;
+        if (r.width > (maxW || (winW - 20))) return false;
+        if (hasDisclaimer(el)) return false;
+        if (el.matches && el.matches('body, html, main, section, [role="log"], [role="feed"], .conversation-container, #chat-history')) {
+          return false;
+        }
+        return true;
+      }
+
+      function hasPillRadius(el) {
+        if (!el || typeof window === 'undefined' || !window.getComputedStyle) return false;
+        var cs = window.getComputedStyle(el);
+        var r = parseFloat(cs.borderRadius) || parseFloat(cs.borderTopLeftRadius) || 0;
+        return r >= 16;
+      }
+
+      function hasCardStyle(el) {
+        if (!el || typeof window === 'undefined' || !window.getComputedStyle) return false;
+        var cs = window.getComputedStyle(el);
+        var r = parseFloat(cs.borderRadius) || parseFloat(cs.borderTopLeftRadius) || 0;
+        var hasBg = cs.backgroundColor && cs.backgroundColor !== 'transparent' && cs.backgroundColor !== 'rgba(0, 0, 0, 0)';
+        var hasBorder = (parseFloat(cs.borderWidth) || 0) > 0 && cs.borderStyle !== 'none';
+        var hasShadow = cs.boxShadow && cs.boxShadow !== 'none';
+        return (r >= 12) && (hasBg || hasBorder || hasShadow);
+      }
+
+      // 1. Google Gemini (gemini.google.com)
       if (/gemini\.google\.com/i.test(host)) {
-        var geminiCard = targetEl.closest('.input-area, [class*="input-area"], .chat-input-container, .conversation-container');
-        if (geminiCard && geminiCard.querySelectorAll('button, [role="button"]').length > 0) {
-          return geminiCard;
-        }
-        var richText = targetEl.closest('rich-textarea');
-        if (richText && richText.parentElement) {
-          var pGemini = richText.parentElement;
-          while (pGemini && pGemini !== document.body && pGemini !== document.documentElement) {
-            if (pGemini.querySelectorAll('button, [role="button"]').length > 0) {
-              return pGemini;
+        var richText = targetEl.closest('rich-textarea') || targetEl;
+
+        var inputArea = richText.closest('.input-area, [class*="input-area"]');
+        if (inputArea && isValidCard(inputArea, maxAllowedH, winW - 30)) {
+          if (!inputArea.classList.contains('conversation-container') && !inputArea.classList.contains('chat-history') && !inputArea.classList.contains('chat-app')) {
+            var btns = inputArea.querySelectorAll('button, [role="button"]');
+            if (btns.length > 0) {
+              return inputArea;
             }
-            pGemini = pGemini.parentElement;
           }
+        }
+
+        var currGemini = richText.parentElement;
+        var depthGemini = 0;
+        while (currGemini && currGemini !== document.body && depthGemini < 5) {
+          depthGemini++;
+          if (hasDisclaimer(currGemini)) break;
+          if (currGemini.classList && (
+            currGemini.classList.contains('conversation-container') ||
+            currGemini.classList.contains('bottom-container') ||
+            currGemini.classList.contains('chat-history') ||
+            currGemini.classList.contains('chat-app')
+          )) {
+            break;
+          }
+          if (isValidCard(currGemini, maxAllowedH, winW - 30)) {
+            var gBtns = currGemini.querySelectorAll('button, [role="button"]');
+            var gRadius = hasPillRadius(currGemini);
+            if (gRadius && gBtns.length > 0) {
+              return currGemini;
+            }
+          }
+          currGemini = currGemini.parentElement;
+        }
+
+        if (richText.parentElement && isValidCard(richText.parentElement, maxAllowedH, winW - 30)) {
+          return richText.parentElement;
         }
       }
 
-      // ChatGPT: find the outer pill wrapper inside form (encompassing +, textarea, mic, voice, send)
-      if (/chatgpt\.com|chat\.openai\.com/i.test(host)) {
-        var form = targetEl.closest('form');
-        if (form) {
-          var composerBg = form.querySelector('#composer-background, [id*="composer"], [class*="rounded-[2"], [class*="rounded-3xl"], [class*="rounded-2xl"], [class*="bg-token-main-surface"]');
-          if (composerBg && composerBg.contains(targetEl) && composerBg.querySelectorAll('button, [role="button"]').length > 0) {
-            return composerBg;
-          }
-          if (form.querySelectorAll('button, [role="button"]').length > 0 && form.getBoundingClientRect().height < 450) {
-            return form;
-          }
-        }
-      }
-
-      // Claude: find fieldset or rounded card wrapper
+      // 2. Anthropic Claude (claude.ai)
       if (/claude\.ai/i.test(host)) {
-        var claudeCard = targetEl.closest('div[class*="rounded-2xl"], div[class*="rounded-xl"], fieldset, form');
-        if (claudeCard && claudeCard.querySelectorAll('button, [role="button"]').length > 0) {
-          return claudeCard;
+        var fieldset = targetEl.closest('fieldset');
+        if (fieldset && isValidCard(fieldset, maxAllowedH, winW - 24) && fieldset.querySelectorAll('button, [role="button"]').length > 0) {
+          return fieldset;
         }
+
+        var currClaude = targetEl.parentElement;
+        var depthClaude = 0;
+        var bestClaudeCard = null;
+
+        while (currClaude && currClaude !== document.body && depthClaude < 6) {
+          depthClaude++;
+          if (hasDisclaimer(currClaude)) break;
+          if (currClaude.tagName && currClaude.tagName.toLowerCase() === 'form') break;
+
+          var cRect = currClaude.getBoundingClientRect();
+          if (cRect.width > 0 && cRect.height > 0 && cRect.height <= maxAllowedH) {
+            var cs = window.getComputedStyle(currClaude);
+            var cBorder = parseFloat(cs.borderWidth) || 0;
+            var cRadius = parseFloat(cs.borderRadius) || parseFloat(cs.borderTopLeftRadius) || 0;
+            var cBtns = currClaude.querySelectorAll('button, [role="button"]');
+
+            if ((cBorder > 0 || cRadius >= 14 || (currClaude.className && currClaude.className.includes('rounded-'))) && cBtns.length > 0) {
+              bestClaudeCard = currClaude;
+              var hasSend = false;
+              for (var bi = 0; bi < cBtns.length; bi++) {
+                var btnAria = (cBtns[bi].getAttribute('aria-label') || '').toLowerCase();
+                if (btnAria.includes('send') || btnAria.includes('message')) { hasSend = true; break; }
+              }
+              if (hasSend || cBtns.length >= 2) {
+                return currClaude;
+              }
+            }
+          }
+          currClaude = currClaude.parentElement;
+        }
+
+        if (bestClaudeCard) return bestClaudeCard;
       }
 
-      // Google AI Studio
-      if (/aistudio\.google\.com/i.test(host)) {
-        var aiStudioBox = targetEl.closest('ms-autosize-textarea, ms-prompt-box, .prompt-box, form');
-        if (aiStudioBox && aiStudioBox.parentElement) {
-          var pStudio = aiStudioBox.parentElement;
-          while (pStudio && pStudio !== document.body && pStudio !== document.documentElement) {
-            if (pStudio.querySelectorAll('button, [role="button"]').length > 0) {
-              return pStudio;
+      // 3. OpenAI ChatGPT (chatgpt.com / chat.openai.com)
+      if (/chatgpt\.com|chat\.openai\.com/i.test(host)) {
+        var composerBg = targetEl.closest('#composer-background, [id*="composer-background"], [class*="bg-token-main-surface"], div[class*="rounded-[2"], div[class*="rounded-3xl"]');
+        if (composerBg && isValidCard(composerBg, maxAllowedH, winW - 24)) {
+          return composerBg;
+        }
+
+        var currGpt = targetEl.parentElement;
+        var depthGpt = 0;
+        var bestGptCard = null;
+
+        while (currGpt && currGpt !== document.body && depthGpt < 6) {
+          depthGpt++;
+          if (hasDisclaimer(currGpt)) break;
+          if (currGpt.tagName && currGpt.tagName.toLowerCase() === 'form') break;
+
+          var gRect = currGpt.getBoundingClientRect();
+          if (gRect.width > 0 && gRect.height > 0 && gRect.height <= maxAllowedH) {
+            var gcs = window.getComputedStyle(currGpt);
+            var gRadius = parseFloat(gcs.borderRadius) || parseFloat(gcs.borderTopLeftRadius) || 0;
+            var gBtns = currGpt.querySelectorAll('button, [role="button"]');
+
+            if (gRadius >= 16 && gBtns.length > 0) {
+              bestGptCard = currGpt;
+              var hasGptSend = false;
+              for (var gi = 0; gi < gBtns.length; gi++) {
+                var gTestId = (gBtns[gi].getAttribute('data-testid') || '').toLowerCase();
+                var gAria = (gBtns[gi].getAttribute('aria-label') || '').toLowerCase();
+                if (gTestId.includes('send') || gAria.includes('send') || gAria.includes('prompt')) {
+                  hasGptSend = true;
+                  break;
+                }
+              }
+              if (hasGptSend || gBtns.length >= 2) {
+                return currGpt;
+              }
             }
-            pStudio = pStudio.parentElement;
           }
+          currGpt = currGpt.parentElement;
+        }
+
+        if (bestGptCard) return bestGptCard;
+      }
+
+      // 4. Google AI Studio (aistudio.google.com)
+      if (/aistudio\.google\.com/i.test(host)) {
+        var aiStudioBox = targetEl.closest('ms-autosize-textarea, ms-prompt-box, .prompt-box');
+        if (aiStudioBox && aiStudioBox.parentElement && isValidCard(aiStudioBox.parentElement, maxAllowedH, winW - 30)) {
+          return aiStudioBox.parentElement;
         }
       }
     } catch (e) {}
 
-    // 2. Universal upward traversal: find the pill / card container that wraps the input and its accompanying buttons
+    // 5. Universal Scored Upward Traversal (Fallback for all sites)
     try {
       var targetRect = targetEl.getBoundingClientRect();
       var curr = targetEl.parentElement;
       var depth = 0;
       var bestCandidate = null;
       var bestScore = -1;
+      var winWFallback = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 1920;
+      var winHFallback = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 1080;
 
-      while (curr && curr !== document.body && curr !== document.documentElement && depth < 12) {
+      while (curr && curr !== document.body && curr !== document.documentElement && depth < 8) {
         depth++;
         var rect = curr.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) {
@@ -840,28 +1001,20 @@
           continue;
         }
 
-        // Must not be the entire window width
-        if (rect.width > (window.innerWidth || 1920) - 16) {
-          break;
-        }
+        if (rect.width > winWFallback - 24) break;
+        if (rect.height > 380 || rect.height > winHFallback * 0.6) break;
 
-        // Must not be a huge layout container (chat history, main feed, etc.)
-        if (rect.height > 480 || rect.height > (window.innerHeight || 800) * 0.75) {
-          break;
-        }
-
-        // Must not be a chat log / message list / presentation container
-        if (curr.matches && curr.matches('main, article, section, [role="log"], [role="feed"], [role="main"]')) {
-          break;
+        if (curr.matches && curr.matches('main, article, section, [role="log"], [role="feed"], [role="main"], form, .conversation-container, #chat-history')) {
+          curr = curr.parentElement;
+          continue;
         }
 
         var cs = (typeof window !== 'undefined' && window.getComputedStyle) ? window.getComputedStyle(curr) : null;
-        var radiusVal = cs ? (parseFloat(cs.borderRadius) || 0) : 0;
+        var radiusVal = cs ? (parseFloat(cs.borderRadius) || parseFloat(cs.borderTopLeftRadius) || 0) : 0;
         var hasBg = cs && cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent';
         var hasBorder = cs && (parseFloat(cs.borderWidth) || 0) > 0 && cs.borderStyle !== 'none';
         var hasShadow = cs && cs.boxShadow && cs.boxShadow !== 'none';
 
-        // Count buttons inside curr that are OUTSIDE targetEl
         var allBtns = curr.querySelectorAll('button, [role="button"], input[type="submit"]');
         var outsideBtns = 0;
         var hasSendBtn = false;
@@ -884,17 +1037,19 @@
           }
         }
 
-        // Calculate card score
         var score = 0;
         if (outsideBtns > 0) score += 50;
         if (hasSendBtn) score += 100;
-        if (outsideBtns >= 2) score += 30; // Multi-button toolbar (+, mic, send)
-        if (radiusVal >= 16) score += 60; // Rounded pill/card corners
+        if (outsideBtns >= 2) score += 30;
+        if (radiusVal >= 16) score += 60;
         else if (radiusVal >= 8) score += 25;
         if (hasBg) score += 20;
         if (hasBorder || hasShadow) score += 15;
 
-        // Must fully encompass targetEl (with 4px tolerance for subpixel rounding)
+        if (rect.height > targetRect.height + 150) {
+          score -= 80;
+        }
+
         var enclosesTarget = (rect.width >= targetRect.width - 4) && (rect.height >= targetRect.height - 2);
 
         if (enclosesTarget && score > bestScore) {
@@ -902,8 +1057,7 @@
           bestScore = score;
         }
 
-        // If we found a candidate with send button + rounded corners (score >= 200), that's the composer card!
-        if (hasSendBtn && radiusVal >= 16 && outsideBtns >= 1) {
+        if (hasSendBtn && radiusVal >= 16 && outsideBtns >= 1 && rect.height <= targetRect.height + 90) {
           bestCandidate = curr;
           break;
         }
@@ -941,9 +1095,13 @@
       if (!targetEl || !targetEl.isConnected || !overlay) return;
       try {
         var hostBox = (containerEl && containerEl.isConnected) ? containerEl : targetEl;
+        var targetRect = targetEl.getBoundingClientRect();
         var rect = hostBox.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) {
-          rect = targetEl.getBoundingClientRect();
+        var winW = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 1920;
+
+        // Safety guard: if hostBox is collapsed, wider than viewport, or more than 100px taller than targetEl, fallback to targetEl
+        if (rect.width <= 0 || rect.height <= 0 || rect.width > winW - 10 || (targetRect.height > 0 && rect.height > targetRect.height + 100)) {
+          rect = targetRect;
           hostBox = targetEl;
         }
         if (rect.width <= 0 || rect.height <= 0) return;
@@ -951,9 +1109,14 @@
         var radius = '26px';
         if (typeof window !== 'undefined' && window.getComputedStyle) {
           var cs = window.getComputedStyle(hostBox);
-          var hostRadius = parseFloat(cs.borderRadius) || 0;
+          var tl = cs.borderTopLeftRadius || '';
+          var tr = cs.borderTopRightRadius || '';
+          var br = cs.borderBottomRightRadius || '';
+          var bl = cs.borderBottomLeftRadius || '';
+          var hostRadius = parseFloat(tl) || parseFloat(cs.borderRadius) || 0;
+
           if (hostRadius >= 8) {
-            radius = cs.borderRadius;
+            radius = (tl === tr && tr === br && br === bl && tl) ? tl : (tl + ' ' + tr + ' ' + br + ' ' + bl);
           } else {
             var tcs = window.getComputedStyle(targetEl);
             var targetRadius = parseFloat(tcs.borderRadius) || 0;
@@ -971,11 +1134,15 @@
           }
         }
 
-        overlay.style.top = Math.round(rect.top) + 'px';
-        overlay.style.left = Math.round(rect.left) + 'px';
-        overlay.style.width = Math.round(rect.width) + 'px';
-        overlay.style.height = Math.round(rect.height) + 'px';
+        overlay.style.top = rect.top + 'px';
+        overlay.style.left = rect.left + 'px';
+        overlay.style.width = rect.width + 'px';
+        overlay.style.height = rect.height + 'px';
         overlay.style.borderRadius = radius;
+        overlay.style.clipPath = 'inset(0 round ' + radius + ')';
+        if (overlay.style.webkitClipPath !== undefined) {
+          overlay.style.webkitClipPath = 'inset(0 round ' + radius + ')';
+        }
       } catch (e) {}
     }
 
@@ -994,6 +1161,8 @@
     // Floating Status Badge
     var badge = document.createElement('div');
     badge.className = 'pe-halftone-badge';
+    badge.setAttribute('role', 'status');
+    badge.setAttribute('aria-live', 'polite');
     badge.style.background = theme.badgeBg;
     badge.style.color = theme.textColor;
     badge.style.borderColor = 'rgba(' + theme.primaryRgb.join(',') + ', 0.3)';
@@ -1060,12 +1229,12 @@
       overlay.classList.add('pe-visible');
     }
 
-    halftoneOverlayElement = overlay;
-    stopHalftoneAnimation = startHalftoneAnimation(canvas, theme);
-
     var onReposition = function () {
       updateGeometry();
     };
+
+    halftoneOverlayElement = overlay;
+    stopHalftoneAnimation = startHalftoneAnimation(canvas, theme, onReposition);
 
     var onKeyEsc = function (e) {
       if (e.key === 'Escape' || e.code === 'Escape') {

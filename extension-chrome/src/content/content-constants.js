@@ -29,7 +29,9 @@
     /** Content → SW (and Popup → SW in manual mode): run grammar correction */
     CORRECT_GRAMMAR: 'pe/correct-grammar',
     /** Content → SW (fire-and-forget): update the toolbar badge */
-    ENHANCE_STATUS: 'pe/enhance-status'
+    ENHANCE_STATUS: 'pe/enhance-status',
+    /** Content/Popup → SW: retrieve aggregated usage stats & limit status */
+    GET_USAGE_STATS: 'pe/get-usage-stats'
   };
 
   // ---------------------------------------------------------------------------

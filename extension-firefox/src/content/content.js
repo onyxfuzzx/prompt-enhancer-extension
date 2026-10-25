@@ -81,6 +81,12 @@
     var writeResult = PE.dom.writeText(target, text);
     if (writeResult && writeResult.ok) {
       notifyStatus('done');
+      if (PE.statsOverlay && typeof PE.statsOverlay.refresh === 'function') {
+        setTimeout(function () {
+          PE.statsOverlay.refresh();
+          PE.statsOverlay.recalculate();
+        }, 600);
+      }
       PE.ui.showSuccess({
         targetEl: target,
         message: customSuccessMsg || 'Prompt enhanced ✓',
@@ -198,11 +204,17 @@
       chatContext = PE.dom.extractConversationContext(currentAdapter, currentTarget);
     }
 
+    var attachments = [];
+    if (PE.dom && typeof PE.dom.extractAttachments === 'function') {
+      attachments = PE.dom.extractAttachments(currentAdapter, currentTarget);
+    }
+
     try {
       chrome.runtime.sendMessage({
         type: PE.C.MSG.ENHANCE_PROMPT,
         text: raw,
         context: chatContext,
+        attachments: attachments,
         source: 'content'
       }, function (response) {
         var runtimeErr = chrome.runtime.lastError;
@@ -474,6 +486,9 @@
         var contextTurns = (PE.dom && typeof PE.dom.extractConversationContext === 'function')
           ? PE.dom.extractConversationContext(adapter, target)
           : [];
+        var attachments = (PE.dom && typeof PE.dom.extractAttachments === 'function')
+          ? PE.dom.extractAttachments(adapter, target)
+          : [];
 
         sendResponse({
           ok: true,
@@ -481,7 +496,9 @@
           siteId: adapter.id,
           hasTarget: Boolean(target),
           charCount: text.length,
-          contextCount: contextTurns.length
+          contextCount: contextTurns.length,
+          attachmentsCount: attachments.length,
+          attachments: attachments
         });
       } catch (err) {
         sendResponse({
