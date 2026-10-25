@@ -403,19 +403,72 @@
     checkDirty();
   });
 
-  inputTemperature.addEventListener('input', function () {
-    temperatureValue.textContent = inputTemperature.value;
-    // Update slider fill CSS custom property for visual gradient
-    var fill = ((parseFloat(inputTemperature.value) - 0) / (1 - 0)) * 100;
+  // ---------------------------------------------------------------------------
+  // Temperature Slider & Color Management
+  // 0.0 -> Green (#10B981)
+  // 0.5 -> Orange (#F59E0B)
+  // 1.0 -> Red (#EF4444)
+  // ---------------------------------------------------------------------------
+  function getTemperatureColor(val) {
+    var v = Math.max(0, Math.min(1, parseFloat(val) || 0));
+    var r, g, b;
+    if (v <= 0.5) {
+      var t = v / 0.5; // 0.0 -> 1.0
+      r = Math.round(16 + t * (245 - 16));
+      g = Math.round(185 + t * (158 - 185));
+      b = Math.round(129 + t * (11 - 129));
+    } else {
+      var t = (v - 0.5) / 0.5; // 0.0 -> 1.0
+      r = Math.round(245 + t * (239 - 245));
+      g = Math.round(158 + t * (68 - 158));
+      b = Math.round(11 + t * (68 - 11));
+    }
+    return {
+      rgb: 'rgb(' + r + ', ' + g + ', ' + b + ')',
+      rgbaBg: 'rgba(' + r + ', ' + g + ', ' + b + ', 0.15)',
+      rgbaBorder: 'rgba(' + r + ', ' + g + ', ' + b + ', 0.35)',
+      rgbaGlow: 'rgba(' + r + ', ' + g + ', ' + b + ', 0.45)'
+    };
+  }
+
+  // Update slider track fill, dynamic color, thumb ring, badge, and labels
+  function updateSliderFill() {
+    var val = parseFloat(inputTemperature.value);
+    if (isNaN(val)) val = 0.3;
+    var fill = ((val - 0) / (1 - 0)) * 100;
+    var col = getTemperatureColor(val);
+
     inputTemperature.style.setProperty('--pe-range-fill', fill + '%');
+    inputTemperature.style.setProperty('--pe-range-color', col.rgb);
+    inputTemperature.style.setProperty('--pe-range-glow', col.rgbaGlow);
+
+    if (temperatureValue) {
+      temperatureValue.textContent = val.toFixed(1);
+      temperatureValue.style.setProperty('--pe-temp-badge-color', col.rgb);
+      temperatureValue.style.setProperty('--pe-temp-badge-bg', col.rgbaBg);
+      temperatureValue.style.setProperty('--pe-temp-badge-border', col.rgbaBorder);
+      temperatureValue.classList.remove('status--muted');
+    }
+
+    var lblPrecise = document.getElementById('temp-label-precise');
+    var lblBalanced = document.getElementById('temp-label-balanced');
+    var lblCreative = document.getElementById('temp-label-creative');
+
+    if (lblPrecise && lblBalanced && lblCreative) {
+      lblPrecise.classList.toggle('is-active', val <= 0.2);
+      lblBalanced.classList.toggle('is-active', val >= 0.4 && val <= 0.6);
+      lblCreative.classList.toggle('is-active', val >= 0.8);
+
+      lblPrecise.style.color = (val <= 0.2) ? '#10B981' : '';
+      lblBalanced.style.color = (val >= 0.4 && val <= 0.6) ? '#F59E0B' : '';
+      lblCreative.style.color = (val >= 0.8) ? '#EF4444' : '';
+    }
+  }
+
+  inputTemperature.addEventListener('input', function () {
+    updateSliderFill();
     checkDirty();
   });
-
-  // Initialize the slider fill on load
-  function updateSliderFill() {
-    var fill = ((parseFloat(inputTemperature.value) - 0) / (1 - 0)) * 100;
-    inputTemperature.style.setProperty('--pe-range-fill', fill + '%');
-  }
 
   inputMaxTokens.addEventListener('input', checkDirty);
 

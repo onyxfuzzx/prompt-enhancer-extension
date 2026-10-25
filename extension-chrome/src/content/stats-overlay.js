@@ -671,20 +671,42 @@
 
       // 3. ChatGPT (chatgpt.com / chat.openai.com)
       if (/chatgpt\.com|chat\.openai\.com/i.test(hostname)) {
-        var switcher = document.querySelector('[data-testid="model-switcher-dropdown"]');
+        // A. Check URL query (?model=...)
+        try {
+          var urlParams = new URLSearchParams(window.location.search);
+          var mParam = urlParams.get('model');
+          if (mParam) {
+            if (/o3-mini/i.test(mParam)) return 'o3-mini';
+            if (/o1-mini/i.test(mParam)) return 'o1-mini';
+            if (/o1-preview/i.test(mParam)) return 'o1-preview';
+            if (/^o1/i.test(mParam)) return 'o1';
+            if (/gpt-4o-mini/i.test(mParam)) return 'GPT-4o mini';
+            if (/gpt-4o/i.test(mParam)) return 'GPT-4o';
+            if (/gpt-4/i.test(mParam)) return 'GPT-4';
+          }
+        } catch (e) {}
+
+        // B. Check model switcher dropdowns & header buttons
+        var switcher = document.querySelector('[data-testid*="model"], button[aria-haspopup="menu"]');
         if (switcher) {
           var sText = (switcher.textContent || '').trim();
-          if (sText && sText.length < 25 && !/prompt|search|type/i.test(sText)) {
-            return sText;
+          if (sText && sText.length < 30 && !/prompt|search|type/i.test(sText)) {
+            var mMatch = sText.match(/\b(GPT-4o\s*mini|GPT-4o|GPT-4|o3-mini|o1-preview|o1-mini|o1)\b/i);
+            if (mMatch) return mMatch[0];
           }
         }
-        var gptButtons = document.querySelectorAll('button');
+
+        // C. Check all buttons in the top navigation area
+        var gptButtons = document.querySelectorAll('header button, nav button, button[aria-haspopup="menu"], button');
         for (var g = 0; g < gptButtons.length; g++) {
           var bText = (gptButtons[g].textContent || '').trim();
-          if (/^(ChatGPT|GPT-4o|GPT-4|o1-preview|o1-mini|o1)\b/i.test(bText)) {
-            return bText;
+          var match = bText.match(/\b(GPT-4o\s*mini|GPT-4o|GPT-4|o3-mini|o1-preview|o1-mini|o1)\b/i);
+          if (match) {
+            return match[0];
           }
         }
+
+        // D. Default fallback for modern ChatGPT web interface
         return 'GPT-4o';
       }
 
