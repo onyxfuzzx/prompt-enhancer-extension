@@ -1080,8 +1080,8 @@
     var onCancel = options.onCancel;
     var mode = options.mode || 'enhance';
     var message = options.message || (mode === 'grammar' ? 'Correcting grammar…' : 'Enhancing prompt…');
-    var svgWand = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20l9-9"/><path d="M13 11l-1-1L15.5 6.5l2 2L14 12l-1-1z" fill="currentColor"/></svg>';
-    var svgPen  = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#F43F5E" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+    var svgWand = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none"><defs><linearGradient id="wandLoadGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C084FC"/><stop offset="100%" stop-color="#6366F1"/></linearGradient></defs><path d="M4 20l9-9" stroke="url(#wandLoadGrad)" stroke-width="2.2" stroke-linecap="round"/><path d="M13 11l-1-1L15.5 6.5l2 2L14 12l-1-1z" fill="url(#wandLoadGrad)"/><path d="M19 2l.5 1.2L20.7 3.7l-1.2.5L19 5.4l-.5-1.2L17.3 3.7l1.2-.5L19 2z" fill="#FDE047"/></svg>';
+    var svgPen  = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none"><defs><linearGradient id="penLoadGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FDA4AF"/><stop offset="100%" stop-color="#F43F5E"/></linearGradient></defs><path d="M12 20h9" stroke="#FDA4AF" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="url(#penLoadGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="url(#penLoadGrad)" fill-opacity="0.18"/><circle cx="17.5" cy="5" r="1" fill="#FDE047"/></svg>';
     var iconSvg = mode === 'grammar' ? svgPen : svgWand;
 
     var containerEl = findOuterInputContainer(targetEl);
@@ -1441,7 +1441,7 @@
 
     var icon = document.createElement('span');
     icon.className = 'pe-icon-success';
-    icon.innerHTML = '<svg viewBox="0 0 20 20" width="14" height="14" fill="none"><circle cx="10" cy="10" r="9" fill="#10B981" fill-opacity="0.18" stroke="#10B981" stroke-width="1.6"/><path d="M6 10.2l2.6 2.6 5.4-5.6" stroke="#10B981" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    icon.innerHTML = '<svg viewBox="0 0 20 20" width="14" height="14" fill="none"><defs><linearGradient id="toastCheckGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#34D399"/><stop offset="100%" stop-color="#059669"/></linearGradient></defs><circle cx="10" cy="10" r="9" fill="url(#toastCheckGrad)" fill-opacity="0.22" stroke="url(#toastCheckGrad)" stroke-width="1.8"/><path d="M6 10.2l2.6 2.6 5.4-5.6" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     content.appendChild(icon);
 
     var msg = document.createElement('span');
@@ -1455,7 +1455,7 @@
       var undoBtn = document.createElement('button');
       undoBtn.type = 'button';
       undoBtn.className = 'pe-btn pe-btn-undo';
-      undoBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg><span>Undo</span>';
+      undoBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none"><defs><linearGradient id="undoGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FDE047"/><stop offset="100%" stop-color="#F59E0B"/></linearGradient></defs><path d="M3 7v6h6" stroke="url(#undoGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" stroke="url(#undoGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Undo</span>';
       undoBtn.addEventListener('click', function () {
         ui.hide();
         onUndo();
@@ -1752,8 +1752,8 @@
     var badge = document.createElement('span');
     badge.className = 'pe-card-badge';
     var iconSvg = (mode === 'grammar')
-      ? '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#F43F5E" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>'
-      : '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#C084FC" stroke-width="2"><path d="M4 20l9-9"/><path d="M13 11l-1-1L15.5 6.5l2 2L14 12l-1-1z" fill="currentColor"/></svg>';
+      ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none"><defs><linearGradient id="cardPenGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FDA4AF"/><stop offset="100%" stop-color="#F43F5E"/></linearGradient></defs><path d="M12 20h9" stroke="#FDA4AF" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="url(#cardPenGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="url(#cardPenGrad)" fill-opacity="0.18"/><circle cx="17.5" cy="5" r="1" fill="#FDE047"/></svg>'
+      : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none"><defs><linearGradient id="cardWandGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C084FC"/><stop offset="100%" stop-color="#6366F1"/></linearGradient></defs><path d="M4 20l9-9" stroke="url(#cardWandGrad)" stroke-width="2.2" stroke-linecap="round"/><path d="M13 11l-1-1L15.5 6.5l2 2L14 12l-1-1z" fill="url(#cardWandGrad)"/><path d="M19 2l.5 1.2L20.7 3.7l-1.2.5L19 5.4l-.5-1.2L17.3 3.7l1.2-.5L19 2z" fill="#FDE047"/></svg>';
     var titleLabel = (mode === 'grammar') ? 'Corrected Grammar' : 'Enhanced Prompt';
     badge.innerHTML = iconSvg + '<span>' + titleLabel + '</span>';
     titleGroup.appendChild(badge);
@@ -1798,16 +1798,17 @@
     var actions = document.createElement('div');
     actions.className = 'pe-card-actions';
 
+    var copySvgDefault = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none"><defs><linearGradient id="cardCopyGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#38BDF8"/><stop offset="100%" stop-color="#06B6D4"/></linearGradient></defs><rect x="9" y="9" width="13" height="13" rx="2.5" fill="url(#cardCopyGrad)" fill-opacity="0.18" stroke="url(#cardCopyGrad)" stroke-width="1.8"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="#38BDF8" stroke-width="1.8" stroke-linecap="round"/></svg>';
     var copyBtn = document.createElement('button');
     copyBtn.type = 'button';
     copyBtn.className = 'pe-btn-copy-main';
-    copyBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Copy</span>';
+    copyBtn.innerHTML = copySvgDefault + '<span>Copy</span>';
     copyBtn.addEventListener('click', function () {
       if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
         navigator.clipboard.writeText(text).then(function () {
-          copyBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#10B981" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span style="color:#10B981">Copied!</span>';
+          copyBtn.innerHTML = '<svg viewBox="0 0 20 20" width="13" height="13" fill="none"><defs><linearGradient id="copiedGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#34D399"/><stop offset="100%" stop-color="#059669"/></linearGradient></defs><circle cx="10" cy="10" r="9" fill="url(#copiedGrad)" fill-opacity="0.22" stroke="url(#copiedGrad)" stroke-width="1.8"/><path d="M6 10.2l2.6 2.6 5.4-5.6" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="color:#34D399">Copied!</span>';
           setTimeout(function () {
-            copyBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Copy</span>';
+            copyBtn.innerHTML = copySvgDefault + '<span>Copy</span>';
           }, 2000);
         });
       }
@@ -1817,7 +1818,7 @@
     var insertBtn = document.createElement('button');
     insertBtn.type = 'button';
     insertBtn.className = 'pe-btn-insert-main';
-    insertBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg><span>Insert into Chat</span>';
+    insertBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none"><defs><linearGradient id="cardInsertGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#34D399"/><stop offset="100%" stop-color="#10B981"/></linearGradient></defs><path d="M12 4v14M19 11l-7 7-7-7" stroke="url(#cardInsertGrad)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Insert into Chat</span>';
     insertBtn.addEventListener('click', function () {
       removePromptCard();
       if (typeof onInsert === 'function') {
