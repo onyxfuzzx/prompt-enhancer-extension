@@ -31,7 +31,9 @@
     /** Content → SW (fire-and-forget): update the toolbar badge */
     ENHANCE_STATUS: 'pe/enhance-status',
     /** Content/Popup → SW: retrieve aggregated usage stats & limit status */
-    GET_USAGE_STATS: 'pe/get-usage-stats'
+    GET_USAGE_STATS: 'pe/get-usage-stats',
+    /** Content/Popup → SW: retrieve live Claude session & weekly usage */
+    GET_CLAUDE_USAGE: 'pe/get-claude-usage'
   };
 
   // ---------------------------------------------------------------------------

@@ -43,7 +43,9 @@
       /** Popup → SW: retrieve the last enhancement result */
       GET_LAST_RESULT:   'pe/get-last-result',
       /** Content/Popup → SW: retrieve aggregated usage stats & limit status */
-      GET_USAGE_STATS:   'pe/get-usage-stats'
+      GET_USAGE_STATS:   'pe/get-usage-stats',
+      /** Content/Popup → SW: retrieve live Claude session & weekly usage */
+      GET_CLAUDE_USAGE:  'pe/get-claude-usage'
     },
 
     // -------------------------------------------------------------------------
@@ -162,6 +164,19 @@
       'gpt-4o':               { input: 5.00,   output: 15.00 },
       'gpt-4-turbo':          { input: 10.00,  output: 30.00 },
       'gpt-3.5-turbo':        { input: 0.50,   output: 1.50  },
+      'claude-fable-5-1':     { input: 10.00,  output: 50.00 },
+      'claude-fable-5':       { input: 10.00,  output: 50.00 },
+      'claude-fable':         { input: 10.00,  output: 50.00 },
+      'fable-5.1':            { input: 10.00,  output: 50.00 },
+      'fable-5':              { input: 10.00,  output: 50.00 },
+      'fable':                { input: 10.00,  output: 50.00 },
+      'claude-mythos-5-1':    { input: 10.00,  output: 50.00 },
+      'claude-mythos':        { input: 10.00,  output: 50.00 },
+      'mythos':               { input: 10.00,  output: 50.00 },
+      'claude-3-7-sonnet':    { input: 3.00,   output: 15.00 },
+      'sonnet-3.7':           { input: 3.00,   output: 15.00 },
+      'claude-design':        { input: 3.00,   output: 15.00 },
+      'design':               { input: 3.00,   output: 15.00 },
       'claude-3-5-sonnet':    { input: 3.00,   output: 15.00 },
       'claude-3-5-haiku':     { input: 0.80,   output: 4.00  },
       'claude-3-opus':        { input: 15.00,  output: 75.00 },

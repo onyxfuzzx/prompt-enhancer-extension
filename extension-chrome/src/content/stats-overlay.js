@@ -36,6 +36,7 @@
     visible: true,
     position: 'right', // 'right' (top-right mark) or 'left' (top-left mark)
     activeLimitMode: 'session', // 'session' | 'weekly' | 'daily'
+    customLimit: null,
     modelName: 'Auto Detect',
     manualModel: null,
     conversationTokens: 0,
@@ -86,6 +87,14 @@
     var storedManual = window.localStorage ? window.localStorage.getItem('pe_custom_model') : null;
     if (storedManual && storedManual.trim()) {
       state.manualModel = storedManual.trim();
+    }
+
+    var storedCustomLimit = window.localStorage ? window.localStorage.getItem('pe_custom_limit') : null;
+    if (storedCustomLimit) {
+      var parsedLimit = parseInt(storedCustomLimit, 10);
+      if (!isNaN(parsedLimit) && parsedLimit > 0) {
+        state.customLimit = parsedLimit;
+      }
     }
   } catch (e) {
     state.sessionStart = Date.now();
@@ -407,12 +416,19 @@
     '  font-weight: 600;',
     '}',
     '.pe-metric-meta {',
+    '  cursor: pointer;',
     '  display: flex;',
     '  align-items: center;',
     '  gap: 5px;',
     '  font-size: 11px;',
     '  color: var(--pe-text-secondary);',
     '  white-space: nowrap;',
+    '  border-radius: 4px;',
+    '  padding: 1px 4px;',
+    '  transition: background-color 0.15s;',
+    '}',
+    '.pe-metric-meta:hover {',
+    '  background: var(--pe-bg-hover);',
     '}',
     '.pe-meta-pct {',
     '  color: var(--pe-accent);',
@@ -447,6 +463,10 @@
     '.pe-meter-bar.pe-warn {',
     '  background: #f59e0b;',
     '  box-shadow: 0 0 8px rgba(245, 158, 11, 0.35);',
+    '}',
+    '.pe-meter-bar.pe-danger {',
+    '  background: #ef4444;',
+    '  box-shadow: 0 0 8px rgba(239, 68, 68, 0.40);',
     '}',
     '.pe-meter-marker {',
     '  position: absolute;',
@@ -528,7 +548,10 @@
       return (bestMatch.input + (bestMatch.output || bestMatch.input)) / 2;
     }
 
+    if (nameLower.indexOf('design') !== -1) return 15.0;
     if (nameLower.indexOf('opus') !== -1) return 25.0;
+    if (nameLower.indexOf('fable') !== -1) return 30.0;
+    if (nameLower.indexOf('mythos') !== -1) return 30.0;
     if (nameLower.indexOf('sonnet') !== -1) return 3.75;
     if (nameLower.indexOf('haiku') !== -1) return 0.50;
     if (nameLower.indexOf('o1') !== -1) return 30.0;
@@ -657,16 +680,120 @@
         return 'Gemini 1.5 Pro';
       }
 
-      // 2. Claude (claude.ai)
-      if (/claude\.ai/i.test(hostname)) {
-        var claudeBtns = document.querySelectorAll('button:not([aria-label*="Send"]):not([aria-label*="Upload"])');
-        for (var c = 0; c < claudeBtns.length; c++) {
-          var cTxt = (claudeBtns[c].textContent || '').trim();
-          if (/\b(Opus|Sonnet|Haiku)\b/i.test(cTxt) && cTxt.length < 30 && !/prompt|enter|reply|message/i.test(cTxt)) {
-            return cTxt.replace(/\s+/g, ' ');
+      // 2. Claude (claude.ai / claude.com)
+      if (/(?:claude\.ai|claude\.com)/i.test(hostname)) {
+        var isClaudeDesign = /\/design\b/i.test(window.location.pathname) || /mode=design/i.test(window.location.search);
+        // Supported Claude model families: Fable (e.g. Fable 5.1), Mythos (e.g. Mythos 5.1), Sonnet (e.g. Sonnet 3.5, 3.7), Opus, Haiku, Design
+        var CLAUDE_MODEL_REGEX = /\b(?:Claude\s+)?(?:[\d\.]+\s+)?(?:Fable|Mythos|Sonnet|Opus|Haiku|Design)(?:\s*[\d\.]+)?(?:\s*\([^)]+\))?\b/i;
+        var CLAUDE_IGNORE_REGEX = /prompt|enter\s+a|reply|message|send|upload|attach|microphone|speech|search|dismiss|close|sidebar|account|profile|settings|help/i;
+
+        var evaluateClaudeCandidate = function (el) {
+          if (!el) return null;
+          // Never match buttons inside chat history turns (user or assistant messages)
+          if (el.closest && el.closest('[data-testid="user-message"], [data-testid="assistant-message"], .font-user-message, .font-claude-message, [data-is-user="true"], article, [role="article"]')) {
+            return null;
+          }
+          if (el.tagName === 'TEXTAREA' || el.isContentEditable) return null;
+
+          var aria = (el.getAttribute('aria-label') || '').trim();
+          var testId = (el.getAttribute('data-testid') || '').trim();
+          var modelAttr = (el.getAttribute('data-model') || '').trim();
+          var text = (el.textContent || '').trim();
+
+          if (CLAUDE_IGNORE_REGEX.test(aria) && !CLAUDE_MODEL_REGEX.test(aria)) return null;
+
+          var combined = (text + ' ' + aria + ' ' + modelAttr + ' ' + testId).trim();
+          if (!combined) return null;
+
+          var hasThinking = /\b(?:extended\s+thinking|thinking)\b/i.test(combined);
+
+          // 1. Direct regex match on text, aria, data-model, or testid
+          var m = text.match(CLAUDE_MODEL_REGEX) || aria.match(CLAUDE_MODEL_REGEX) || modelAttr.match(CLAUDE_MODEL_REGEX) || combined.match(CLAUDE_MODEL_REGEX);
+          if (m && m[0]) {
+            var extracted = m[0].trim().replace(/\s+/g, ' ');
+            if (hasThinking && !/\bthinking\b/i.test(extracted)) {
+              return extracted + ' (Thinking)';
+            }
+            return extracted;
+          }
+
+          // 2. Explicit model selector attribute with clean text
+          if ((/model/i.test(testId) || /model/i.test(aria) || /model/i.test(el.className || '')) && text.length > 1 && text.length < 35 && !CLAUDE_IGNORE_REGEX.test(text)) {
+            var cleanDropdownText = text.replace(/\s+/g, ' ').trim();
+            if (hasThinking && !/\bthinking\b/i.test(cleanDropdownText)) {
+              return cleanDropdownText + ' (Thinking)';
+            }
+            return cleanDropdownText;
+          }
+
+          return null;
+        };
+
+        // Step A: Check inside the chat composer / input container (where the active model picker sits)
+        var editorEl = document.querySelector('div.ProseMirror, [contenteditable="true"][role="textbox"], textarea');
+        if (editorEl) {
+          var composer = (editorEl.closest && editorEl.closest('fieldset, form, [class*="composer"], [class*="input"], [class*="chat-input"]')) ||
+                         (editorEl.parentElement && editorEl.parentElement.parentElement && editorEl.parentElement.parentElement.parentElement);
+          if (composer && composer.querySelectorAll) {
+            var composerControls = composer.querySelectorAll(
+              '[data-testid*="model"], [aria-label*="model" i], button[aria-haspopup="menu"], button[aria-haspopup="true"], ' +
+              'button[role="combobox"], [data-state], button, [role="button"]'
+            );
+            for (var ci = 0; ci < composerControls.length; ci++) {
+              var detectedInComposer = evaluateClaudeCandidate(composerControls[ci]);
+              if (detectedInComposer) {
+                return detectedInComposer;
+              }
+            }
           }
         }
-        return 'Claude 3.5 Sonnet';
+
+        // Step B: Check explicitly tagged model elements across the page
+        var explicitModelEls = document.querySelectorAll(
+          '[data-testid*="model"], [data-testid*="select-model"], [aria-label*="model" i], ' +
+          '[aria-label*="fable" i], [aria-label*="mythos" i], [aria-label*="sonnet" i], [aria-label*="opus" i], [aria-label*="haiku" i], [aria-label*="design" i], ' +
+          '[class*="model-selector" i], [class*="ModelSelector" i]'
+        );
+        for (var em = 0; em < explicitModelEls.length; em++) {
+          var detectedExplicit = evaluateClaudeCandidate(explicitModelEls[em]);
+          if (detectedExplicit) {
+            return detectedExplicit;
+          }
+        }
+
+        // Step C: If model menu/popover is currently open, check the selected/checked item
+        var openMenuItems = document.querySelectorAll(
+          '[role="menuitem"][aria-checked="true"], [role="menuitem"][aria-selected="true"], ' +
+          '[role="option"][aria-selected="true"], [data-state="checked"]'
+        );
+        for (var mi = 0; mi < openMenuItems.length; mi++) {
+          var detectedInMenu = evaluateClaudeCandidate(openMenuItems[mi]);
+          if (detectedInMenu) {
+            return detectedInMenu;
+          }
+        }
+
+        // Step D: Check buttons across header, nav, and page (excluding chat history turns)
+        var allClaudeBtns = document.querySelectorAll(
+          'header button, nav button, [class*="header"] button, button:not([aria-label*="Send"]):not([aria-label*="Upload"])'
+        );
+        for (var cb = 0; cb < allClaudeBtns.length; cb++) {
+          var detectedBtn = evaluateClaudeCandidate(allClaudeBtns[cb]);
+          if (detectedBtn) {
+            return detectedBtn;
+          }
+        }
+
+        // Step E: Retain previously detected model if valid (prevents temporary DOM mutation resets)
+        if (state.modelName && state.modelName !== 'Auto Detect' && state.modelName !== 'Claude 3.5 Sonnet' && state.modelName !== 'Claude 3.7 Sonnet (Design)') {
+          return state.modelName;
+        }
+
+        if (state.configuredModel && state.configuredModel.trim()) {
+          return state.configuredModel;
+        }
+
+        return isClaudeDesign ? 'Claude 3.7 Sonnet (Design)' : 'Claude 3.5 Sonnet';
       }
 
       // 3. ChatGPT (chatgpt.com / chat.openai.com)
@@ -818,6 +945,161 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Claude Live Usage Tracker (Real-time 5-Hour Session & 7-Day Quota)
+  // ---------------------------------------------------------------------------
+  var claudeUsage = {
+    supported: false,
+    orgId: null,
+    fiveHourUtil: null,       // percentage 0-100 (e.g. 35)
+    fiveHourResetsAt: null,   // epoch ms
+    sevenDayUtil: null,       // percentage 0-100 (e.g. 64)
+    sevenDayResetsAt: null,   // epoch ms
+    lastFetched: 0,
+    fetching: false,
+    fetchError: null
+  };
+
+  function getClaudeOrgId() {
+    if (claudeUsage.orgId) return Promise.resolve(claudeUsage.orgId);
+
+    // 1. Check document.cookie for lastActiveOrg
+    try {
+      var cookieMatch = document.cookie.match(/(?:^|;\s*)lastActiveOrg=([^;]+)/);
+      if (cookieMatch && cookieMatch[1]) {
+        claudeUsage.orgId = decodeURIComponent(cookieMatch[1].trim());
+        return Promise.resolve(claudeUsage.orgId);
+      }
+    } catch (e) {}
+
+    // 2. Check window.localStorage
+    try {
+      if (window.localStorage) {
+        var stored = window.localStorage.getItem('lastActiveOrg') || window.localStorage.getItem('currentOrganizationId');
+        if (stored && stored.trim()) {
+          claudeUsage.orgId = stored.trim();
+          return Promise.resolve(claudeUsage.orgId);
+        }
+      }
+    } catch (e) {}
+
+    // 3. Check URL path for org UUID
+    try {
+      var pathMatch = window.location.pathname.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+      if (pathMatch && pathMatch[1]) {
+        claudeUsage.orgId = pathMatch[1];
+        return Promise.resolve(claudeUsage.orgId);
+      }
+    } catch (e) {}
+
+    // 4. Query /api/organizations
+    return fetch('/api/organizations', {
+      method: 'GET',
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' }
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (orgs) {
+        if (Array.isArray(orgs) && orgs.length > 0) {
+          var id = orgs[0].uuid || orgs[0].id;
+          if (id) {
+            claudeUsage.orgId = id;
+            return id;
+          }
+        }
+        throw new Error('No organization found');
+      });
+  }
+
+  function applyClaudeUsageData(data) {
+    if (!data) return;
+    claudeUsage.supported = true;
+    claudeUsage.lastFetched = Date.now();
+    claudeUsage.fetchError = null;
+
+    var five = data.five_hour || data.fiveHour || data.session || {};
+    var fiveVal = (five.utilization != null) ? five.utilization : five.utilization_pct;
+    if (fiveVal != null && !isNaN(fiveVal)) {
+      var fNum = parseFloat(fiveVal);
+      claudeUsage.fiveHourUtil = (fNum > 0 && fNum <= 1.0) ? Math.round(fNum * 100) : Math.min(100, Math.max(0, Math.round(fNum)));
+    }
+    if (five.resets_at) {
+      var fReset = new Date(five.resets_at).getTime();
+      if (!isNaN(fReset) && fReset > 0) {
+        claudeUsage.fiveHourResetsAt = fReset;
+      }
+    }
+
+    var seven = data.seven_day || data.sevenDay || data.weekly || {};
+    var sevenVal = (seven.utilization != null) ? seven.utilization : seven.utilization_pct;
+    if (sevenVal != null && !isNaN(sevenVal)) {
+      var sNum = parseFloat(sevenVal);
+      claudeUsage.sevenDayUtil = (sNum > 0 && sNum <= 1.0) ? Math.round(sNum * 100) : Math.min(100, Math.max(0, Math.round(sNum)));
+    }
+    if (seven.resets_at) {
+      var sReset = new Date(seven.resets_at).getTime();
+      if (!isNaN(sReset) && sReset > 0) {
+        claudeUsage.sevenDayResetsAt = sReset;
+      }
+    }
+
+    renderCard();
+  }
+
+  function fetchClaudeLiveUsage(force) {
+    var host = (window.location && window.location.hostname) ? window.location.hostname.toLowerCase() : '';
+    if (!/(?:claude\.ai|claude\.com)/i.test(host)) return;
+
+    var now = Date.now();
+    if (!force && (now - claudeUsage.lastFetched < 30000 || claudeUsage.fetching)) {
+      return;
+    }
+
+    claudeUsage.fetching = true;
+
+    // Strategy A: Same-origin fetch from content script
+    getClaudeOrgId()
+      .then(function (orgId) {
+        return fetch('/api/organizations/' + encodeURIComponent(orgId) + '/usage', {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Accept': 'application/json' }
+        });
+      })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        claudeUsage.fetching = false;
+        applyClaudeUsageData(data);
+      })
+      .catch(function (err) {
+        // Strategy B: Fallback to Service Worker messaging
+        if (chrome && chrome.runtime && chrome.runtime.sendMessage && PE.C && PE.C.MSG && PE.C.MSG.GET_CLAUDE_USAGE) {
+          chrome.runtime.sendMessage({
+            type: PE.C.MSG.GET_CLAUDE_USAGE,
+            orgId: claudeUsage.orgId || ''
+          }, function (response) {
+            claudeUsage.fetching = false;
+            if (chrome.runtime.lastError) return;
+            if (response && response.ok && response.data) {
+              if (response.orgId) claudeUsage.orgId = response.orgId;
+              applyClaudeUsageData(response.data);
+            } else {
+              claudeUsage.fetchError = (response && response.error) || err;
+            }
+          });
+        } else {
+          claudeUsage.fetching = false;
+          claudeUsage.fetchError = err;
+        }
+      });
+  }
+
+  // ---------------------------------------------------------------------------
   // Helper: Detect Site Design System & Theme Mode (Gemini, Claude, ChatGPT)
   // ---------------------------------------------------------------------------
   function detectSiteTheme() {
@@ -825,7 +1107,7 @@
     var site = 'default';
     if (/gemini\.google\.com/i.test(host)) {
       site = 'gemini';
-    } else if (/claude\.ai/i.test(host)) {
+    } else if (/(?:claude\.ai|claude\.com)/i.test(host)) {
       site = 'claude';
     } else if (/chatgpt\.com|chat\.openai\.com/i.test(host)) {
       site = 'chatgpt';
@@ -860,6 +1142,54 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Helper: Detect In-Page Limit Notices (e.g. on Claude.ai)
+  // ---------------------------------------------------------------------------
+  function detectClaudeLimitNoticeFromDOM() {
+    try {
+      var noticeEls = document.querySelectorAll(
+        '[role="alert"], [class*="banner"], [class*="warning"], [class*="notice"], [class*="limit"], [class*="toast"], ' +
+        '[data-testid*="limit"], [data-testid*="banner"], fieldset, form, [class*="composer"]'
+      );
+      for (var i = 0; i < noticeEls.length; i++) {
+        var el = noticeEls[i];
+        if (el.closest && el.closest('[data-testid="user-message"], [data-testid="assistant-message"], .font-user-message, .font-claude-message, [data-is-user="true"], article')) {
+          continue;
+        }
+        var txt = (el.textContent || '').trim();
+        if (!txt || txt.length < 5 || txt.length > 300) continue;
+
+        var remMatch = txt.match(/(\d+)\s+(?:messages?\s+)?remaining(?:\s+until\s+([0-9:apm\s]+))?/i);
+        if (remMatch) {
+          return {
+            messagesLeft: parseInt(remMatch[1], 10),
+            resetTime: remMatch[2] ? remMatch[2].trim() : null
+          };
+        }
+
+        if (/reached\s+(?:your\s+)?(?:message\s+)?limit|out\s+of\s+messages/i.test(txt)) {
+          var timeMatch = txt.match(/until\s+([0-9:apm\s]+)/i) || txt.match(/reset\s+at\s+([0-9:apm\s]+)/i);
+          return {
+            messagesLeft: 0,
+            resetTime: timeMatch ? timeMatch[1].trim() : null,
+            reached: true
+          };
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function getClaudeSessionLimit(modelName) {
+    var m = (modelName || '').toLowerCase();
+    if (m.indexOf('fable') !== -1) return 20; // Fable 5.1 high-compute allocation
+    if (m.indexOf('opus') !== -1) return 20;  // Claude 3 Opus allocation
+    if (m.indexOf('design') !== -1) return 30; // Claude Design allocation
+    if (m.indexOf('haiku') !== -1) return 100; // Haiku high allowance
+    if (m.indexOf('sonnet') !== -1) return 45; // Claude 3.5 / 3.7 Sonnet Pro baseline
+    return 45;
+  }
+
+  // ---------------------------------------------------------------------------
   // Render Unified Floating Card
   // ---------------------------------------------------------------------------
   function renderCard() {
@@ -883,33 +1213,97 @@
     // Limits & Percentages
     var usedCount = 0;
     var limitMax = 0;
-    var percentage = 16;
+    var percentage = 0;
     var modeLabel = 'Session';
 
     var bStats = state.backgroundStats;
     var bLimits = state.backgroundLimits;
 
+    // Detect actual user message turns in the conversation (not doubling with assistant turns)
+    var userMsgEls = document.querySelectorAll(
+      '[data-testid="user-message"], [data-testid*="user-message"], [data-testid="chat-message-user"], [data-testid="human-turn"], .font-user-message, [data-is-user="true"], [data-message-author-role="user"], [data-role="user"], div[class*="UserMessage"], div[class*="user-message"], div[class*="HumanTurn"], div[class*="human-turn"]'
+    );
+    var userTurns = (userMsgEls && userMsgEls.length > 0) ? userMsgEls.length : Math.max(0, Math.ceil(state.conversationTurns / 2));
+
+    // Check if Claude displays an active in-page limit notification
+    var claudeNotice = null;
+    if (theme.site === 'claude') {
+      claudeNotice = detectClaudeLimitNoticeFromDOM();
+    }
+
+    var hasClaudeLiveSession = (theme.site === 'claude' && claudeUsage.fiveHourUtil != null);
+    var hasClaudeLiveWeekly  = (theme.site === 'claude' && claudeUsage.sevenDayUtil != null);
+
     if (state.activeLimitMode === 'session') {
       modeLabel = 'Session';
-      var turns = state.conversationTurns || 1;
-      usedCount = (bStats && bStats.counts && bStats.counts.today) ? bStats.counts.today : turns;
-      limitMax = (bLimits && bLimits.daily && bLimits.daily.limit > 0) ? bLimits.daily.limit : 45;
-      percentage = Math.min(100, Math.round((usedCount / limitMax) * 100));
-      if (percentage <= 0) percentage = 16;
+
+      // Model-aware baseline limits for Claude session (Fable: 20, Opus: 20, Design: 30, Sonnet: 45, Haiku: 100)
+      if (state.customLimit && state.customLimit > 0) {
+        limitMax = state.customLimit;
+      } else if (bLimits && bLimits.daily && bLimits.daily.limit > 0) {
+        limitMax = bLimits.daily.limit;
+      } else if (theme.site === 'claude') {
+        limitMax = getClaudeSessionLimit(state.modelName);
+      } else {
+        limitMax = 45;
+      }
+
+      if (hasClaudeLiveSession) {
+        // Real-time live 5-hour rolling session utilization directly from Claude API
+        percentage = claudeUsage.fiveHourUtil;
+        usedCount = Math.round((percentage / 100) * limitMax);
+        if (claudeUsage.fiveHourResetsAt) {
+          var remMs = Math.max(0, claudeUsage.fiveHourResetsAt - now);
+          var h = Math.floor(remMs / (1000 * 60 * 60));
+          var m = Math.floor((remMs % (1000 * 60 * 60)) / (1000 * 60));
+          if (h > 0 || m > 0) {
+            resetStr = h + 'h ' + m + 'm';
+          } else {
+            resetStr = 'Resetting...';
+          }
+        }
+      } else if (claudeNotice && typeof claudeNotice.messagesLeft === 'number') {
+        var explicitLeft = claudeNotice.messagesLeft;
+        usedCount = Math.max(0, limitMax - explicitLeft);
+        percentage = limitMax > 0 ? Math.min(100, Math.max(0, Math.round((usedCount / limitMax) * 100))) : 0;
+        if (claudeNotice.resetTime) resetStr = claudeNotice.resetTime;
+      } else {
+        usedCount = userTurns;
+        percentage = limitMax > 0 ? Math.min(100, Math.max(0, Math.round((usedCount / limitMax) * 100))) : 0;
+      }
+
     } else if (state.activeLimitMode === 'weekly') {
       modeLabel = 'Weekly';
-      usedCount = (bStats && bStats.counts && bStats.counts.week) ? bStats.counts.week : 0;
-      limitMax = (bLimits && bLimits.weekly && bLimits.weekly.limit > 0) ? bLimits.weekly.limit : 200;
-      percentage = Math.min(100, Math.round((usedCount / limitMax) * 100));
+      limitMax = (state.customLimit && state.customLimit > 0) ? state.customLimit * 5 :
+                 ((bLimits && bLimits.weekly && bLimits.weekly.limit > 0) ? bLimits.weekly.limit : 200);
+
+      if (hasClaudeLiveWeekly) {
+        // Real-time live 7-day quota utilization directly from Claude API
+        percentage = claudeUsage.sevenDayUtil;
+        usedCount = Math.round((percentage / 100) * limitMax);
+        if (claudeUsage.sevenDayResetsAt) {
+          var remWeekMs = Math.max(0, claudeUsage.sevenDayResetsAt - now);
+          var days = Math.floor(remWeekMs / (1000 * 60 * 60 * 24));
+          var hours = Math.floor((remWeekMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          resetStr = days > 0 ? (days + 'd ' + hours + 'h') : (hours + 'h');
+        }
+      } else {
+        var storedWeek = (bStats && bStats.counts && typeof bStats.counts.week === 'number') ? bStats.counts.week : 0;
+        usedCount = Math.max(userTurns, storedWeek);
+        percentage = limitMax > 0 ? Math.min(100, Math.max(0, Math.round((usedCount / limitMax) * 100))) : 0;
+      }
     } else if (state.activeLimitMode === 'daily') {
       modeLabel = 'Daily';
-      usedCount = (bStats && bStats.counts && bStats.counts.today) ? bStats.counts.today : 0;
-      limitMax = (bLimits && bLimits.daily && bLimits.daily.limit > 0) ? bLimits.daily.limit : 50;
-      percentage = Math.min(100, Math.round((usedCount / limitMax) * 100));
+      var storedToday = (bStats && bStats.counts && typeof bStats.counts.today === 'number') ? bStats.counts.today : 0;
+      usedCount = Math.max(userTurns, storedToday);
+      limitMax = (state.customLimit && state.customLimit > 0) ? state.customLimit :
+                 ((bLimits && bLimits.daily && bLimits.daily.limit > 0) ? bLimits.daily.limit : 50);
+      percentage = limitMax > 0 ? Math.min(100, Math.max(0, Math.round((usedCount / limitMax) * 100))) : 0;
     }
 
     var messagesLeft = Math.max(0, limitMax - usedCount);
     var isWarning = percentage >= 80;
+    var isDanger = percentage >= 100 || (claudeNotice && claudeNotice.reached);
 
     var tokensFormatted = formatTokens(state.conversationTokens);
     var costFormatted = formatCost(state.costUSD);
@@ -919,7 +1313,7 @@
       '<span class="pe-status-dot"></span>',
       '<span class="pe-mini-text"><strong class="pe-mini-val">' + tokensFormatted + '</strong> tok</span>',
       '<span class="pe-dot-sep">•</span>',
-      '<span class="pe-mini-text"><strong class="pe-mini-val">' + percentage + '%</strong> ' + modeLabel.toLowerCase() + '</span>',
+      '<span class="pe-mini-text" title="Usage: ' + usedCount + ' / ' + limitMax + ' messages (' + messagesLeft + ' left)"><strong class="pe-mini-val">' + percentage + '%</strong> ' + modeLabel.toLowerCase() + '</span>',
       '<span class="pe-dot-sep">•</span>',
       '<span class="pe-mini-text">' + resetStr + '</span>',
       '<div class="pe-mini-actions">',
@@ -960,7 +1354,7 @@
       '      <button class="pe-pill-tab ' + (state.activeLimitMode === 'weekly' ? 'pe-active' : '') + '" data-mode="weekly">Weekly</button>',
       '      <button class="pe-pill-tab ' + (state.activeLimitMode === 'daily' ? 'pe-active' : '') + '" data-mode="daily">Daily</button>',
       '    </div>',
-      '    <div class="pe-metric-meta">',
+      '    <div class="pe-metric-meta" title="Plan Limit: ' + limitMax + ' messages (' + modeLabel + '). Click to change/override.">',
       '      <span class="pe-meta-pct">' + percentage + '% used</span>',
       '      <span class="pe-dot-sep">•</span>',
       '      <span class="pe-meta-reset">' + resetStr + '</span>',
@@ -972,7 +1366,7 @@
       // Bottom Row: Slender Progress Bar
       '  <div class="pe-meter-container">',
       '    <div class="pe-meter-track">',
-      '      <div class="pe-meter-bar ' + (isWarning ? 'pe-warn' : '') + '" style="width: ' + percentage + '%;"></div>',
+      '      <div class="pe-meter-bar ' + (isDanger ? 'pe-danger' : (isWarning ? 'pe-warn' : '')) + '" style="width: ' + percentage + '%;"></div>',
       '      <div class="pe-meter-marker" style="left: 80%;"></div>',
       '    </div>',
       '  </div>',
@@ -1024,6 +1418,7 @@
     if (btnRefresh) {
       btnRefresh.addEventListener('click', function () {
         fetchBackgroundStats();
+        fetchClaudeLiveUsage(true);
         recalculatePageTokens();
       });
     }
@@ -1070,7 +1465,7 @@
       modelBadge.style.cursor = 'pointer';
       modelBadge.setAttribute('title', 'Active Model: ' + state.modelName + ' (Click to change/override)');
       modelBadge.addEventListener('click', function () {
-        var current = state.manualModel || state.modelName || 'Argon (High)';
+        var current = state.manualModel || (state.modelName && state.modelName !== 'Auto Detect' ? state.modelName : '');
         var input = window.prompt('Model name to display (or leave blank for auto-detect):', current);
         if (input !== null) {
           var trimmed = input.trim();
@@ -1085,6 +1480,29 @@
             }
           } catch (e) {}
           recalculatePageTokens();
+        }
+      });
+    }
+
+    // Metric Meta (Limit): click to change or override message limit
+    var metricMeta = cardElement.querySelector('.pe-metric-meta');
+    if (metricMeta) {
+      metricMeta.addEventListener('click', function () {
+        var current = state.customLimit ? String(state.customLimit) : String(limitMax);
+        var input = window.prompt('Set your plan message limit for ' + modeLabel + ' (or leave blank for auto):', current);
+        if (input !== null) {
+          var val = parseInt(input.trim(), 10);
+          state.customLimit = (!isNaN(val) && val > 0) ? val : null;
+          try {
+            if (window.localStorage) {
+              if (state.customLimit) {
+                window.localStorage.setItem('pe_custom_limit', String(state.customLimit));
+              } else {
+                window.localStorage.removeItem('pe_custom_limit');
+              }
+            }
+          } catch (e) {}
+          renderCard();
         }
       });
     }
@@ -1116,6 +1534,7 @@
 
     // Initial Population
     fetchBackgroundStats();
+    fetchClaudeLiveUsage(false);
     recalculatePageTokens();
 
     // Setup MutationObserver with debouncing
@@ -1141,6 +1560,7 @@
 
     pollInterval = setInterval(function () {
       fetchBackgroundStats();
+      fetchClaudeLiveUsage(false); // Periodic poll
     }, 30000);
   }
 
@@ -1156,7 +1576,7 @@
   // Export overlay controller for programmatic access
   PE.statsOverlay = {
     recalculate: recalculatePageTokens,
-    refresh: fetchBackgroundStats,
+    refresh: function () { fetchBackgroundStats(); fetchClaudeLiveUsage(true); },
     setPosition: function (pos) {
       if (pos === 'left' || pos === 'right') {
         state.position = pos;
@@ -1178,6 +1598,20 @@
         }
       } catch (e) {}
       recalculatePageTokens();
+    },
+    setLimit: function (limit) {
+      var val = parseInt(limit, 10);
+      state.customLimit = (!isNaN(val) && val > 0) ? val : null;
+      try {
+        if (window.localStorage) {
+          if (state.customLimit) {
+            window.localStorage.setItem('pe_custom_limit', String(state.customLimit));
+          } else {
+            window.localStorage.removeItem('pe_custom_limit');
+          }
+        }
+      } catch (e) {}
+      renderCard();
     },
     show: function () {
       if (cardElement) cardElement.classList.remove('pe-hidden');

@@ -238,6 +238,66 @@ function handleGetUsageStats() {
   });
 }
 
+
+/**
+ * Handle GET_CLAUDE_USAGE message.
+ * Queries Claude internal usage endpoints with session cookies.
+ *
+ * @param {Object} [payload] { orgId }
+ * @returns {Promise<Object>}
+ */
+function handleGetClaudeUsage(payload) {
+  var orgId = (payload && payload.orgId) || '';
+
+  return new Promise(function (resolve) {
+    if (orgId) {
+      resolve(orgId);
+      return;
+    }
+    if (chrome.cookies && chrome.cookies.get) {
+      chrome.cookies.get({ url: 'https://claude.ai', name: 'lastActiveOrg' }, function (cookie) {
+        if (cookie && cookie.value) {
+          resolve(cookie.value);
+        } else {
+          resolve('');
+        }
+      });
+    } else {
+      resolve('');
+    }
+  }).then(function (id) {
+    if (!id) {
+      return fetch('https://claude.ai/api/organizations', { credentials: 'include' })
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function (orgs) {
+          if (Array.isArray(orgs) && orgs.length > 0) {
+            return orgs[0].uuid || orgs[0].id || '';
+          }
+          return '';
+        })
+        .catch(function () { return ''; });
+    }
+    return id;
+  }).then(function (resolvedId) {
+    if (!resolvedId) {
+      return { ok: false, error: 'No active Claude organization found' };
+    }
+    return fetch('https://claude.ai/api/organizations/' + encodeURIComponent(resolvedId) + '/usage', {
+      credentials: 'include'
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error('Usage fetch HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (usageData) {
+        return { ok: true, orgId: resolvedId, data: usageData };
+      });
+  });
+}
+
 /**
  * Handle ENHANCE_PROMPT message (Section 11 Phase 4).
  *
@@ -613,6 +673,17 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
           sendResponse({
             ok: false,
             error: PE.errors.isPEError(err) ? err : PE.errors.make(PE.errors.CODES.UNKNOWN, err)
+          });
+        });
+      return true;
+
+        case PE.C.MSG.GET_CLAUDE_USAGE:
+      handleGetClaudeUsage(payload)
+        .then(function (res) { sendResponse(res); })
+        .catch(function (err) {
+          sendResponse({
+            ok: false,
+            error: (err && err.message) || String(err)
           });
         });
       return true;

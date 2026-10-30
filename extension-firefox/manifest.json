@@ -39,12 +39,16 @@
     "storage",
     "activeTab",
     "scripting",
-    "contextMenus"
+    "contextMenus",
+    "cookies"
   ],
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
     "https://claude.ai/*",
+    "https://*.claude.ai/*",
+    "https://claude.com/*",
+    "https://*.claude.com/*",
     "https://gemini.google.com/*",
     "https://openrouter.ai/*",
     "https://opencode.ai/*",
@@ -57,6 +61,9 @@
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
         "https://claude.ai/*",
+    "https://*.claude.ai/*",
+    "https://claude.com/*",
+    "https://*.claude.com/*",
         "https://gemini.google.com/*",
         "https://www.perplexity.ai/*",
         "https://chat.deepseek.com/*"
